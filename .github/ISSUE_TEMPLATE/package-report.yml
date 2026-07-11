@@ -1,0 +1,47 @@
+name: Package Report
+description: Report a problematic OpenABCode package listed on openabcode.com
+labels: ["package-report"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to report a package listed on openabcode.com. For OpenABCode core bugs, use the bug report template instead.
+
+        Keep this short. If it doesn't fit on one screen, it's too long. Write in your own voice.
+
+  - type: input
+    id: package-name
+    attributes:
+      label: Package name
+      description: The npm package name from openabcode.com.
+      placeholder: "@scope/package"
+    validations:
+      required: true
+
+  - type: input
+    id: package-version
+    attributes:
+      label: Version
+      description: The package version shown on openabcode.com.
+      placeholder: "0.1.0"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: report-type
+    attributes:
+      label: What are you reporting?
+      options:
+        - Malicious or unsafe behavior
+        - Impersonation
+        - Trademark / TOS Violations
+    validations:
+      required: true
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Details
+      description: Describe the concern and include links, logs, or screenshots if helpful.
+    validations:
+      required: true

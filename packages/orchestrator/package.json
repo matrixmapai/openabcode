@@ -1,0 +1,46 @@
+{
+	"name": "@openabcode/orchestrator",
+	"version": "0.80.6",
+	"description": "experimental orchestrator package for pi",
+	"type": "module",
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist",
+		"README.md",
+		"CHANGELOG.md",
+		"NOTICE"
+	],
+	"scripts": {
+		"clean": "shx rm -rf dist",
+		"dev": "tsgo -p tsconfig.build.json --watch --preserveWatchOutput",
+		"build": "tsgo -p tsconfig.build.json && shx chmod +x dist/cli.js",
+		"prepublishOnly": "npm run clean && npm run build"
+	},
+	"keywords": [
+		"pi",
+		"orchestrator"
+	],
+	"author": "OpenABCode Team",
+	"license": "AGPL-3.0-only",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/matrixmapai/openabcode.git",
+		"directory": "packages/orchestrator"
+	},
+	"engines": {
+		"node": ">=22.19.0"
+	},
+	"dependencies": {
+		"@openabcode/coding-agent": "^0.80.6"
+	},
+	"devDependencies": {
+		"shx": "0.4.0"
+	}
+}
