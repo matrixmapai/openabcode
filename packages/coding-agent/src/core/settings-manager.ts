@@ -62,7 +62,8 @@ export interface WarningSettings {
 export type DefaultProjectTrust = "ask" | "always" | "never";
 
 export interface RouterSettings {
-	enabled?: boolean; // default: true - route each prompt to the best provider via the OpenABCode task router
+	enabled?: boolean; // default: false until the interactive Route setup is completed
+	setupCompleted?: boolean;
 	models?: {
 		google?: string; // "provider/modelId" preferred for google-routed tasks
 		anthropic?: string; // "provider/modelId" preferred for anthropic-routed tasks
@@ -98,7 +99,7 @@ export interface Settings {
 	steeringMode?: "all" | "one-at-a-time";
 	followUpMode?: "all" | "one-at-a-time";
 	theme?: string;
-	router?: RouterSettings; // OpenABCode task routing (default: enabled)
+	router?: RouterSettings; // OpenABCode task routing
 	compaction?: CompactionSettings;
 	branchSummary?: BranchSummarySettings;
 	retry?: RetrySettings;
@@ -748,11 +749,40 @@ export class SettingsManager {
 	}
 
 	getRouterEnabled(): boolean {
-		return this.settings.router?.enabled ?? true;
+		return this.settings.router?.enabled ?? false;
 	}
 
 	setRouterEnabled(enabled: boolean): void {
 		this.globalSettings.router = { ...this.globalSettings.router, enabled };
+		this.markModified("router");
+		this.save();
+	}
+
+	getRouterSetupCompleted(): boolean {
+		return this.settings.router?.setupCompleted ?? this.settings.router?.enabled !== undefined;
+	}
+
+	setRouterModel(provider: "google" | "anthropic" | "openai", modelRef: string): void {
+		this.globalSettings.router = {
+			...this.globalSettings.router,
+			models: { ...this.globalSettings.router?.models, [provider]: modelRef },
+		};
+		this.markModified("router");
+		this.save();
+	}
+
+	setRouterEnabledAndSetupCompleted(enabled: boolean): void {
+		this.globalSettings.router = { ...this.globalSettings.router, enabled, setupCompleted: true };
+		this.markModified("router");
+		this.save();
+	}
+
+	setFixedModelAndDisableRouter(provider: string, modelId: string): void {
+		this.globalSettings.defaultProvider = provider;
+		this.globalSettings.defaultModel = modelId;
+		this.globalSettings.router = { ...this.globalSettings.router, enabled: false, setupCompleted: true };
+		this.markModified("defaultProvider");
+		this.markModified("defaultModel");
 		this.markModified("router");
 		this.save();
 	}

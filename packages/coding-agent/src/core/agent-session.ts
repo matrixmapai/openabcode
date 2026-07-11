@@ -92,7 +92,6 @@ import {
 	pickRouteModel,
 	ROUTING_ENTRY_TYPE,
 	type RoutingDecision,
-	routeProviderOf,
 } from "./router.ts";
 import type { BranchSummaryEntry, CompactionEntry, SessionEntry, SessionManager } from "./session-manager.ts";
 import { CURRENT_SESSION_VERSION, getLatestCompactionEntry, type SessionHeader } from "./session-manager.ts";
@@ -1567,7 +1566,9 @@ export class AgentSession {
 		// Skip the classifier call entirely when no routable model is available.
 		const available = this._modelRegistry.getAvailable();
 		const hasAuth = (model: Model<any>) => this._modelRegistry.hasConfiguredAuth(model);
-		if (!available.some((model) => routeProviderOf(model) !== undefined && hasAuth(model))) return;
+		const configured = this.settingsManager.getRouterModels();
+		const routeChoices = ["openai", "google", "anthropic"] as const;
+		if (routeChoices.some((choice) => !pickRouteModel(choice, available, hasAuth, configured))) return;
 
 		let projectFiles: string[] = [];
 		try {
@@ -1577,7 +1578,7 @@ export class AgentSession {
 		}
 
 		const choice = await classifyProvider({ text, projectFiles });
-		const picked = pickRouteModel(choice, available, hasAuth, this.settingsManager.getRouterModels());
+		const picked = pickRouteModel(choice, available, hasAuth, configured);
 		if (!picked) return;
 
 		const previousModel = this.model;
@@ -1621,6 +1622,21 @@ export class AgentSession {
 		// Re-clamp thinking level for new model's capabilities
 		this.setThinkingLevel(thinkingLevel);
 
+		await this._emitModelSelect(model, previousModel, "set");
+	}
+
+	async setFixedModelAndDisableRouter(model: Model<any>): Promise<void> {
+		if (!this._modelRegistry.hasConfiguredAuth(model)) {
+			throw new Error(`No API key for ${model.provider}/${model.id}`);
+		}
+
+		this._routeMode = "manual";
+		const previousModel = this.model;
+		const thinkingLevel = this._getThinkingLevelForModelSwitch();
+		this.agent.state.model = model;
+		this.sessionManager.appendModelChange(model.provider, model.id);
+		this.settingsManager.setFixedModelAndDisableRouter(model.provider, model.id);
+		this.setThinkingLevel(thinkingLevel);
 		await this._emitModelSelect(model, previousModel, "set");
 	}
 

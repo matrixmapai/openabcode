@@ -64,23 +64,24 @@ describe("OpenABCode router", () => {
 		}
 	});
 
-	it("pickRouteModel prefers the BYOK routing default", () => {
-		const models = [
-			model("anthropic", "claude-haiku-4-5"),
-			model("anthropic", "claude-opus-4-8"),
-			model(OPENABCODE_PROVIDER, "claude-haiku-4-5"),
-		];
-		const picked = pickRouteModel("anthropic", models, () => true);
-		expect(picked?.model.provider).toBe("anthropic");
-		expect(picked?.model.id).toBe("claude-opus-4-8");
-		expect(picked?.source).toBe("classifier");
+	it("OpenABCode hosted model list mirrors the LiteLLM gateway catalog", () => {
+		expect(Object.keys(OPENABCODE_HOSTED_UPSTREAM)).toHaveLength(31);
+		expect(OPENABCODE_HOSTED_UPSTREAM["claude-opus-4-8"]).toBe("anthropic");
+		expect(OPENABCODE_HOSTED_UPSTREAM["gemini-3.1-pro-preview"]).toBe("google");
+		expect(OPENABCODE_HOSTED_UPSTREAM["gpt-5.6-luna"]).toBe("openai");
+		expect(OPENABCODE_HOSTED_UPSTREAM["gpt-image-2"]).toBe("openai");
 	});
 
-	it("pickRouteModel falls back to hosted models when no BYOK auth exists", () => {
+	it("routeProviderOf maps OpenRouter model namespaces", () => {
+		expect(routeProviderOf(model("openrouter", "anthropic/claude-opus-4.8"))).toBe("anthropic");
+		expect(routeProviderOf(model("openrouter", "openai/gpt-5.5"))).toBe("openai");
+		expect(routeProviderOf(model("openrouter", "google/gemini-3.1-pro"))).toBe("google");
+		expect(routeProviderOf(model("openrouter", "mistralai/devstral"))).toBeUndefined();
+	});
+
+	it("pickRouteModel requires an explicit model selection", () => {
 		const models = [model("openai", "gpt-5.5"), model(OPENABCODE_PROVIDER, "gpt-5.4")];
-		const picked = pickRouteModel("openai", models, (m) => m.provider === OPENABCODE_PROVIDER);
-		expect(picked?.model.provider).toBe(OPENABCODE_PROVIDER);
-		expect(picked?.model.id).toBe("gpt-5.4");
+		expect(pickRouteModel("openai", models, () => true)).toBeUndefined();
 	});
 
 	it("pickRouteModel honors the preferred model from settings", () => {
@@ -90,9 +91,16 @@ describe("OpenABCode router", () => {
 		expect(picked?.source).toBe("preferred");
 	});
 
+	it("pickRouteModel rejects a configured model from the wrong family", () => {
+		const models = [model("openai", "gpt-5.5")];
+		expect(pickRouteModel("anthropic", models, () => true, { anthropic: "openai/gpt-5.5" })).toBeUndefined();
+	});
+
 	it("pickRouteModel returns undefined when nothing is eligible", () => {
 		const models = [model("anthropic", "claude-opus-4-8")];
 		expect(pickRouteModel("google", models, () => true)).toBeUndefined();
-		expect(pickRouteModel("anthropic", models, () => false)).toBeUndefined();
+		expect(
+			pickRouteModel("anthropic", models, () => false, { anthropic: "anthropic/claude-opus-4-8" }),
+		).toBeUndefined();
 	});
 });

@@ -87,6 +87,7 @@ import { defaultModelPerProvider, findExactModelReferenceMatch, resolveModelScop
 import { DefaultPackageManager } from "../../core/package-manager.ts";
 import { BUILT_IN_PROVIDER_DISPLAY_NAMES } from "../../core/provider-display-names.ts";
 import type { ResourceDiagnostic } from "../../core/resource-loader.ts";
+import { type ProviderChoice, routeProviderOf } from "../../core/router.ts";
 import { formatMissingSessionCwdPrompt, MissingSessionCwdError } from "../../core/session-cwd.ts";
 import { type SessionEntry, SessionManager, sessionEntryToContextMessages } from "../../core/session-manager.ts";
 import { BUILTIN_SLASH_COMMANDS } from "../../core/slash-commands.ts";
@@ -108,6 +109,7 @@ import { AssistantMessageComponent } from "./components/assistant-message.ts";
 import { BashExecutionComponent } from "./components/bash-execution.ts";
 import { BorderedLoader } from "./components/bordered-loader.ts";
 import { BranchSummaryMessageComponent } from "./components/branch-summary-message.ts";
+import { ChoiceSelectorComponent } from "./components/choice-selector.ts";
 import { CompactionSummaryMessageComponent } from "./components/compaction-summary-message.ts";
 import { CustomEditor } from "./components/custom-editor.ts";
 import { CustomEntryComponent } from "./components/custom-entry.ts";
@@ -163,6 +165,12 @@ import { InteractiveThemeController } from "./theme/theme-controller.ts";
 interface Expandable {
 	setExpanded(expanded: boolean): void;
 }
+
+const ROUTE_MODEL_LABELS: Record<ProviderChoice, string> = {
+	openai: "ChatGPT",
+	google: "Gemini",
+	anthropic: "Claude",
+};
 
 function isExpandable(obj: unknown): obj is Expandable {
 	return typeof obj === "object" && obj !== null && "setExpanded" in obj && typeof obj.setExpanded === "function";
@@ -908,6 +916,10 @@ export class InteractiveMode {
 					this.showError(errorMessage);
 				}
 			}
+		}
+
+		if (!initialMessage && !initialMessages?.length && !this.settingsManager.getRouterSetupCompleted()) {
+			this.showRouteSelector("Route setup");
 		}
 
 		// Main interactive loop
@@ -4306,6 +4318,7 @@ export class InteractiveMode {
 		if (model) {
 			try {
 				await this.session.setModel(model);
+				this.saveRouteModelForFamily(model);
 				this.footer.invalidate();
 				this.updateEditorBorderColor();
 				this.showStatus(`Model: ${model.id}`);
@@ -4320,9 +4333,86 @@ export class InteractiveMode {
 		this.showModelSelector(searchTerm);
 	}
 
-	private async findExactModelMatch(searchTerm: string): Promise<Model<any> | undefined> {
+	private saveRouteModelForFamily(model: Model<any>): void {
+		const family = routeProviderOf(model);
+		if (family) this.settingsManager.setRouterModel(family, `${model.provider}/${model.id}`);
+	}
+
+	private async showFixedModelFlow(onBack: () => void): Promise<void> {
 		const models = await this.getModelCandidates();
-		return findExactModelReferenceMatch(searchTerm, models);
+		const provider = this.settingsManager.getDefaultProvider();
+		if (provider && models.some((model) => model.provider === provider)) {
+			this.showFixedModelSelector(provider, onBack);
+			return;
+		}
+		this.showFixedProviderSelector(models, onBack);
+	}
+
+	private showFixedProviderSelector(models: Model<any>[], onBack: () => void): void {
+		const providers = [...new Set(models.map((model) => model.provider))];
+		if (providers.length === 0) {
+			this.showError("No configured providers have an available model. Use /login first.");
+			onBack();
+			return;
+		}
+		this.showSelector((done) => {
+			const selector = new ChoiceSelectorComponent(
+				"Select provider for fixed model",
+				providers.map((provider) => ({
+					value: provider,
+					label: BUILT_IN_PROVIDER_DISPLAY_NAMES[provider] ?? provider,
+				})),
+				undefined,
+				(provider) => {
+					done();
+					this.showFixedModelSelector(provider, onBack);
+				},
+				() => {
+					done();
+					onBack();
+				},
+				"Configure providers with /login",
+			);
+			return { component: selector, focus: selector.getSelectList() };
+		});
+	}
+
+	private showFixedModelSelector(provider: string, onBack: () => void): void {
+		this.showSelector((done) => {
+			const selector = new ModelSelectorComponent(
+				this.ui,
+				this.session.model,
+				this.settingsManager,
+				this.session.modelRegistry,
+				[],
+				async (model) => {
+					try {
+						await this.session.setFixedModelAndDisableRouter(model);
+						this.showStatus(`Route off · ${model.id} [${model.provider}]`);
+						this.footer.invalidate();
+						done();
+					} catch (error) {
+						done();
+						this.showError(error instanceof Error ? error.message : String(error));
+					}
+				},
+				() => {
+					done();
+					onBack();
+				},
+				undefined,
+				{
+					title: `Select fixed model · ${BUILT_IN_PROVIDER_DISPLAY_NAMES[provider] ?? provider}`,
+					provider,
+					saveAsDefault: false,
+					onChangeProvider: () => {
+						done();
+						void this.getModelCandidates().then((models) => this.showFixedProviderSelector(models, onBack));
+					},
+				},
+			);
+			return { component: selector, focus: selector };
+		});
 	}
 
 	private async getModelCandidates(): Promise<Model<any>[]> {
@@ -4336,6 +4426,11 @@ export class InteractiveMode {
 		} catch {
 			return [];
 		}
+	}
+
+	private async findExactModelMatch(searchTerm: string): Promise<Model<any> | undefined> {
+		const models = await this.getModelCandidates();
+		return findExactModelReferenceMatch(searchTerm, models);
 	}
 
 	/** Update the footer's available provider count from current model candidates */
@@ -4439,6 +4534,7 @@ export class InteractiveMode {
 				async (model) => {
 					try {
 						await this.session.setModel(model);
+						this.saveRouteModelForFamily(model);
 						this.footer.invalidate();
 						this.updateEditorBorderColor();
 						done();
@@ -5591,20 +5687,58 @@ export class InteractiveMode {
 	}
 
 	private handleRouteCommand(arg: string | undefined): void {
-		if (arg === "auto" || arg === "manual") {
-			this.session.setRouteMode(arg);
-			this.settingsManager.setRouterEnabled(arg === "auto");
-			this.showStatus(`Task routing set to ${arg}`);
-			return;
-		}
 		if (arg) {
-			this.showError("Usage: /route [auto|manual]");
+			this.showError("Usage: /route");
 			return;
 		}
-		const mode = this.session.routeMode;
-		const detail =
-			mode === "auto" ? "each prompt is routed to the best provider" : "the selected model is used for every prompt";
-		this.showStatus(`Task routing: ${mode} (${detail})`);
+		this.showRouteSelector();
+	}
+
+	private showRouteSelector(title = "Route"): void {
+		this.showSelector((done) => {
+			const selector = new ChoiceSelectorComponent(
+				title,
+				[
+					{ value: "on", label: "on", description: "Route each task to ChatGPT, Gemini, or Claude" },
+					{ value: "off", label: "off", description: "Always use one fixed model" },
+				],
+				this.session.routeMode === "auto" ? "on" : "off",
+				(value) => {
+					done();
+					if (value === "on") void this.enableRouteIfConfigured();
+					else void this.showFixedModelFlow(() => this.showRouteSelector());
+				},
+				done,
+			);
+			return { component: selector, focus: selector.getSelectList() };
+		});
+	}
+
+	private async enableRouteIfConfigured(): Promise<void> {
+		const models = await this.getModelCandidates();
+		const configured = this.settingsManager.getRouterModels();
+		const slots: ProviderChoice[] = ["openai", "google", "anthropic"];
+		const missing = slots.filter((slot) => {
+			const reference = configured[slot];
+			if (!reference) return true;
+			return !models.some(
+				(model) => `${model.provider}/${model.id}` === reference && routeProviderOf(model) === slot,
+			);
+		});
+
+		if (missing.length === 0) {
+			this.session.setRouteMode("auto");
+			this.settingsManager.setRouterEnabledAndSetupCompleted(true);
+			this.footer.invalidate();
+			this.showStatus("Route on");
+			return;
+		}
+
+		this.session.setRouteMode("manual");
+		this.settingsManager.setRouterEnabledAndSetupCompleted(false);
+		this.footer.invalidate();
+		this.showWarning(`Route is missing: ${missing.map((slot) => ROUTE_MODEL_LABELS[slot]).join(", ")}.`);
+		this.showStatus("Route off");
 	}
 
 	private handleNameCommand(text: string): void {

@@ -14,11 +14,39 @@ export const OPENABCODE_PROVIDER = "openabcode";
 
 const DEFAULT_BASE_URL = "https://gateway.openabcode.com/v1";
 
-/** Hosted model id -> upstream provider routed by the gateway. */
+/** Hosted model id -> upstream provider routed by the gateway. Mirrors LiteLLM model_name entries. */
 export const OPENABCODE_HOSTED_UPSTREAM: Record<string, "openai" | "anthropic" | "google"> = {
-	"gpt-5.4": "openai",
-	"claude-haiku-4-5": "anthropic",
+	"claude-opus-4-8": "anthropic",
+	"claude-opus-4.8": "anthropic",
+	"claude-opus-4-7": "anthropic",
+	"claude-opus-4.7": "anthropic",
+	"claude-sonnet-5": "anthropic",
+	"claude-fable-5": "anthropic",
+	"claude-opus-4-6": "anthropic",
+	"claude-opus-4.6": "anthropic",
+	"claude-opus-4.5": "anthropic",
+	"claude-sonnet-4.6": "anthropic",
+	"claude-sonnet-4.5": "anthropic",
+	"claude-haiku-4.5": "anthropic",
+	"gemini-3.1-pro-preview": "google",
+	"gemini-3-flash-preview": "google",
 	"gemini-3.5-flash": "google",
+	"gemini-3.1-flash-lite": "google",
+	"gemini-3-pro-image-preview": "google",
+	"gemini-3.1-flash-image-preview": "google",
+	"gpt-4o": "openai",
+	"gpt-5": "openai",
+	"gpt-5.1": "openai",
+	"gpt-5.2": "openai",
+	"gpt-5.3-codex": "openai",
+	"gpt-5.4": "openai",
+	"gpt-5.4-long": "openai",
+	"gpt-5.5": "openai",
+	"gpt-5.5-pro": "openai",
+	"gpt-5.6-sol": "openai",
+	"gpt-5.6-terra": "openai",
+	"gpt-5.6-luna": "openai",
+	"gpt-image-2": "openai",
 };
 
 export function openabcodeGatewayBaseUrl(): string {
@@ -28,7 +56,7 @@ export function openabcodeGatewayBaseUrl(): string {
 
 export function registerOpenABCodeProvider(registry: ModelRegistry): void {
 	registry.registerProvider(OPENABCODE_PROVIDER, {
-		name: "OpenABCode Hosted",
+		name: "OpenABCode Gateway",
 		baseUrl: openabcodeGatewayBaseUrl(),
 		apiKey: "$OPENABCODE_API_KEY",
 		api: "openai-completions",

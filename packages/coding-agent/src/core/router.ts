@@ -101,17 +101,16 @@ export async function classifyProvider(input: RouteSignal, apiKey = classifierAp
 
 // --- Model selection ---
 
-/** Default model per provider choice, for BYOK (direct provider) models. */
-const BYOK_DEFAULTS: Record<ProviderChoice, string> = {
-	anthropic: "claude-opus-4-8",
-	openai: "gpt-5.5",
-	google: "gemini-3.1-pro-preview",
-};
-
 /** Map a model to the provider choice it can serve, or undefined if not routable. */
 export function routeProviderOf(model: Model<Api>): ProviderChoice | undefined {
 	if (model.provider === OPENABCODE_PROVIDER) {
 		return OPENABCODE_HOSTED_UPSTREAM[model.id];
+	}
+	if (model.provider === "openrouter") {
+		if (model.id.startsWith("anthropic/")) return "anthropic";
+		if (model.id.startsWith("openai/")) return "openai";
+		if (model.id.startsWith("google/")) return "google";
+		return undefined;
 	}
 	if (model.provider === "anthropic") return "anthropic";
 	if (model.provider === "openai") return "openai";
@@ -122,11 +121,7 @@ export function routeProviderOf(model: Model<Api>): ProviderChoice | undefined {
 /**
  * Pick the best available model for a provider choice.
  *
- * Order of preference:
- * 1. Explicit user preference from settings (router.models), e.g. "anthropic/claude-opus-4-8".
- * 2. BYOK model matching the provider's routing default.
- * 3. Any BYOK model of that provider (newest listed first).
- * 4. OpenABCode hosted model with the matching upstream provider.
+ * Only the explicit model selected through /model for this family is eligible.
  */
 export function pickRouteModel(
 	choice: ProviderChoice,
@@ -138,15 +133,11 @@ export function pickRouteModel(
 	if (preferredRef) {
 		const [providerName, ...idParts] = preferredRef.split("/");
 		const id = idParts.join("/");
-		const match = models.find((m) => m.provider === providerName && m.id === id && hasAuth(m));
+		const match = models.find(
+			(m) => m.provider === providerName && m.id === id && routeProviderOf(m) === choice && hasAuth(m),
+		);
 		if (match) return { model: match, source: "preferred" };
 	}
 
-	const candidates = models.filter((m) => routeProviderOf(m) === choice && hasAuth(m));
-	if (candidates.length === 0) return undefined;
-
-	const byok = candidates.filter((m) => m.provider !== OPENABCODE_PROVIDER);
-	const byokDefault = byok.find((m) => m.id === BYOK_DEFAULTS[choice]);
-	const selected = byokDefault ?? byok[0] ?? candidates[0];
-	return { model: selected, source: "classifier" };
+	return undefined;
 }

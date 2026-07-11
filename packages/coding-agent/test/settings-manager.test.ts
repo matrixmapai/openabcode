@@ -511,4 +511,38 @@ describe("SettingsManager", () => {
 			expect(manager.getShellPath()).toBe(homedir());
 		});
 	});
+
+	describe("router settings", () => {
+		it("defaults routing off until setup is completed", () => {
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getRouterEnabled()).toBe(false);
+			expect(manager.getRouterSetupCompleted()).toBe(false);
+		});
+
+		it("treats an explicit legacy enabled value as completed setup", () => {
+			writeFileSync(join(agentDir, "settings.json"), JSON.stringify({ router: { enabled: false } }));
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getRouterSetupCompleted()).toBe(true);
+		});
+
+		it("stores a native model selection for its Route family", async () => {
+			const manager = SettingsManager.create(projectDir, agentDir);
+			manager.setRouterModel("openai", "openrouter/openai/gpt-5.5");
+			await manager.flush();
+
+			const saved = JSON.parse(readFileSync(join(agentDir, "settings.json"), "utf-8"));
+			expect(saved.router).toEqual({ models: { openai: "openrouter/openai/gpt-5.5" } });
+		});
+
+		it("atomically stores a fixed model and disables routing", async () => {
+			const manager = SettingsManager.create(projectDir, agentDir);
+			manager.setFixedModelAndDisableRouter("anthropic", "claude-sonnet-4-6");
+			await manager.flush();
+
+			const saved = JSON.parse(readFileSync(join(agentDir, "settings.json"), "utf-8"));
+			expect(saved.defaultProvider).toBe("anthropic");
+			expect(saved.defaultModel).toBe("claude-sonnet-4-6");
+			expect(saved.router).toEqual({ enabled: false, setupCompleted: true });
+		});
+	});
 });

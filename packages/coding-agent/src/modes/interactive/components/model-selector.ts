@@ -20,6 +20,13 @@ interface ScopedModelItem {
 
 type ModelScope = "all" | "scoped";
 
+export interface ModelSelectorOptions {
+	title?: string;
+	provider?: string;
+	saveAsDefault?: boolean;
+	onChangeProvider?: () => void;
+}
+
 /**
  * Component that renders a model selector with search
  */
@@ -52,6 +59,7 @@ export class ModelSelectorComponent extends Container implements Focusable {
 	private scope: ModelScope = "all";
 	private scopeText?: Text;
 	private scopeHintText?: Text;
+	private options: ModelSelectorOptions;
 
 	constructor(
 		tui: TUI,
@@ -62,6 +70,7 @@ export class ModelSelectorComponent extends Container implements Focusable {
 		onSelect: (model: Model<any>) => void,
 		onCancel: () => void,
 		initialSearchInput?: string,
+		options: ModelSelectorOptions = {},
 	) {
 		super();
 
@@ -73,10 +82,15 @@ export class ModelSelectorComponent extends Container implements Focusable {
 		this.scope = scopedModels.length > 0 ? "scoped" : "all";
 		this.onSelectCallback = onSelect;
 		this.onCancelCallback = onCancel;
+		this.options = options;
 
 		// Add top border
 		this.addChild(new DynamicBorder());
 		this.addChild(new Spacer(1));
+		if (options.title) {
+			this.addChild(new Text(theme.bold(theme.fg("accent", options.title)), 0, 0));
+			this.addChild(new Spacer(1));
+		}
 
 		// Add hint about model filtering
 		if (scopedModels.length > 0) {
@@ -87,6 +101,9 @@ export class ModelSelectorComponent extends Container implements Focusable {
 		} else {
 			const hintText = "Only showing models from configured providers. Use /login to add providers.";
 			this.addChild(new Text(theme.fg("warning", hintText), 0, 0));
+		}
+		if (options.onChangeProvider) {
+			this.addChild(new Text(theme.fg("muted", "Tab to change provider"), 0, 0));
 		}
 		this.addChild(new Spacer(1));
 
@@ -155,7 +172,8 @@ export class ModelSelectorComponent extends Container implements Focusable {
 			return;
 		}
 
-		this.allModels = this.sortModels(models);
+		const filtered = models.filter((item) => !this.options.provider || item.provider === this.options.provider);
+		this.allModels = this.sortModels(filtered);
 		this.scopedModels = this.scopedModels.map((scoped) => {
 			const refreshed = this.modelRegistry.find(scoped.model.provider, scoped.model.id);
 			return refreshed ? { ...scoped, model: refreshed } : scoped;
@@ -283,6 +301,8 @@ export class ModelSelectorComponent extends Container implements Focusable {
 				if (this.scopeHintText) {
 					this.scopeHintText.setText(this.getScopeHintText());
 				}
+			} else if (this.options.onChangeProvider) {
+				this.options.onChangeProvider();
 			}
 			return;
 		}
@@ -317,8 +337,9 @@ export class ModelSelectorComponent extends Container implements Focusable {
 	}
 
 	private handleSelect(model: Model<any>): void {
-		// Save as new default
-		this.settingsManager.setDefaultModelAndProvider(model.provider, model.id);
+		if (this.options.saveAsDefault !== false) {
+			this.settingsManager.setDefaultModelAndProvider(model.provider, model.id);
+		}
 		this.onSelectCallback(model);
 	}
 
