@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Changed the package license from AGPL-3.0-only to MIT.
+
 ## [0.80.6] - 2026-07-09
 
 ### Added

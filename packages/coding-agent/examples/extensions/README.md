@@ -1,12 +1,12 @@
 # Extension Examples
 
-Example extensions for pi-coding-agent.
+Example extensions for OpenABCode.
 
 ## Usage
 
 ```bash
 # Load an extension with --extension flag
-pi --extension examples/extensions/permission-gate.ts
+openabcode --extension examples/extensions/permission-gate.ts
 
 # Or copy to extensions directory for auto-discovery
 cp permission-gate.ts ~/.openabcode/agent/extensions/
@@ -127,7 +127,7 @@ cp permission-gate.ts ~/.openabcode/agent/extensions/
 | Extension | Description |
 |-----------|-------------|
 | `custom-provider-anthropic/` | Custom Anthropic provider with OAuth support and custom streaming implementation |
-| `custom-provider-gitlab-duo/` | GitLab Duo provider using pi-ai's built-in Anthropic/OpenAI streaming via proxy |
+| `custom-provider-gitlab-duo/` | GitLab Duo provider using `@openabcode/ai` Anthropic/OpenAI streaming via proxy |
 
 ### External Dependencies
 

@@ -307,4 +307,4 @@ OpenABCode keeps the core small and pushes workflow-specific behavior into exten
 
 It intentionally does not include built-in MCP, sub-agents, permission popups, plan mode, to-dos, or background bash. You can build or install those workflows as extensions or packages, or use external tools such as containers and tmux.
 
-For the full rationale, read the [blog post](https://mariozechner.at/posts/2025-11-30-openabcode-coding-agent/).
+For the original rationale, read the [upstream design article](https://mariozechner.at/posts/2025-11-30-pi-coding-agent/).

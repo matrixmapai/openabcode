@@ -4,7 +4,7 @@ Delegate tasks to specialized subagents with isolated context windows.
 
 ## Features
 
-- **Isolated context**: Each subagent runs in a separate `pi` process
+- **Isolated context**: Each subagent runs in a separate `openabcode` process
 - **Streaming output**: See tool calls and progress as they happen
 - **Parallel streaming**: All parallel tasks stream updates simultaneously
 - **Markdown rendering**: Final output rendered with proper formatting (expanded view)
@@ -54,7 +54,7 @@ done
 
 ## Security Model
 
-This tool executes a separate `pi` subprocess with a delegated system prompt and tool/model configuration.
+This tool executes a separate `openabcode` subprocess with a delegated system prompt and tool/model configuration.
 
 **Project-local agents** (`.openabcode/agents/*.md`) are repo-controlled prompts that can instruct the model to read files, run bash commands, etc.
 

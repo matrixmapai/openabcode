@@ -1,7 +1,7 @@
 {
 	"name": "@openabcode/orchestrator",
 	"version": "0.80.6",
-	"description": "experimental orchestrator package for pi",
+	"description": "Experimental orchestration package for OpenABCode coding agents",
 	"type": "module",
 	"main": "./dist/index.js",
 	"types": "./dist/index.d.ts",
@@ -24,11 +24,11 @@
 		"prepublishOnly": "npm run clean && npm run build"
 	},
 	"keywords": [
-		"pi",
+		"openabcode",
 		"orchestrator"
 	],
 	"author": "OpenABCode Team",
-	"license": "AGPL-3.0-only",
+	"license": "MIT",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/matrixmapai/openabcode.git",

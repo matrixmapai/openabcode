@@ -27,7 +27,7 @@
 		"cli"
 	],
 	"author": "OpenABCode Team",
-	"license": "AGPL-3.0-only",
+	"license": "MIT",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/matrixmapai/openabcode.git",

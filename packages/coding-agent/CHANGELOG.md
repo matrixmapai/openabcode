@@ -7,6 +7,10 @@
 - Added OpenABCode task routing: each prompt is automatically classified and routed to the best available provider (Claude, Gemini, or ChatGPT) via `/route [auto|manual]` and the `router` setting.
 - Added built-in OpenABCode hosted gateway provider (`gateway.openabcode.com`) with `OPENABCODE_API_KEY` authentication.
 
+### Changed
+
+- Changed the package license from AGPL-3.0-only to MIT.
+
 ---
 
 > Versions below are inherited from the upstream [Pi](https://github.com/earendil-works/pi) project (MIT License). OpenABCode is built on Pi's runtime; these entries document the features and fixes present in the inherited codebase.

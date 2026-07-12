@@ -2,6 +2,7 @@ import type { AgentTool, ThinkingLevel } from "@openabcode/agent-core";
 import { fauxAssistantMessage, fauxToolCall, type Model } from "@openabcode/ai";
 import { Type } from "typebox";
 import { afterEach, describe, expect, it } from "vitest";
+import type { CustomEntry } from "../../src/core/session-manager.ts";
 import type { BuildSystemPromptOptions, ExtensionAPI } from "../../src/index.ts";
 import { createHarness, getAssistantTexts, type Harness } from "./harness.ts";
 
@@ -124,7 +125,7 @@ describe("AgentSession model and extension characterization", () => {
 		expect(harness.session.model?.id).toBe("claude-route");
 		const routingEntries = harness.sessionManager
 			.getEntries()
-			.filter((entry) => entry.type === "custom" && entry.customType === "openabcode-routing");
+			.filter((entry): entry is CustomEntry => entry.type === "custom" && entry.customType === "openabcode-routing");
 		expect(routingEntries).toHaveLength(2);
 		expect(routingEntries[0]?.data).toMatchObject({
 			provider: "anthropic",

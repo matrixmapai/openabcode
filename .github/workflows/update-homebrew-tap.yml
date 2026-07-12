@@ -39,7 +39,7 @@ jobs:
           class Openabcode < Formula
             desc "AI coding agent with task routing and hosted gateway"
             homepage "https://openabcode.com"
-            license "AGPL-3.0-only"
+            license "MIT"
             version "${VERSION}"
 
             on_macos do
