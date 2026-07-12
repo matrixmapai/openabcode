@@ -262,15 +262,15 @@ Content`,
 			expect(result.prompts.some((r) => r.path === promptPath && !r.enabled)).toBe(true);
 		});
 
-		it("should resolve directory with package.json pi.extensions in extensions setting", async () => {
-			// Create a package with pi.extensions in package.json
+		it("should resolve directory with package.json openabcode.extensions in extensions setting", async () => {
+			// Create a package with openabcode.extensions in package.json
 			const pkgDir = join(tempDir, "my-extensions-pkg");
 			mkdirSync(join(pkgDir, "extensions"), { recursive: true });
 			writeFileSync(
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "my-extensions-pkg",
-					pi: {
+					openabcode: {
 						extensions: ["./extensions/clip.ts", "./extensions/cost.ts"],
 					},
 				}),
@@ -284,7 +284,7 @@ Content`,
 
 			const result = await packageManager.resolve();
 
-			// Should find the extensions declared in package.json pi.extensions
+			// Should find the extensions declared in package.json openabcode.extensions
 			expect(result.extensions.some((r) => r.path === join(pkgDir, "extensions", "clip.ts") && r.enabled)).toBe(
 				true,
 			);
@@ -1102,29 +1102,12 @@ Content`,
 			expect(events.some((e) => e.type === "error")).toBe(true);
 		});
 
-		it("should recognize github URLs without git: prefix", async () => {
-			const events: ProgressEvent[] = [];
-			packageManager.setProgressCallback((event) => events.push(event));
-			const previousGitTerminalPrompt = process.env.GIT_TERMINAL_PROMPT;
-			process.env.GIT_TERMINAL_PROMPT = "0";
+		it("should recognize github URLs without git: prefix", () => {
+			const parsed = (packageManager as unknown as PackageManagerInternals).parseSource(
+				"https://github.com/example/repo",
+			);
 
-			try {
-				// This should be parsed as a git source, not throw "unsupported"
-				try {
-					await packageManager.install("https://github.com/nonexistent/repo");
-				} catch {
-					// Expected to fail - repo doesn't exist
-				}
-			} finally {
-				if (previousGitTerminalPrompt === undefined) {
-					delete process.env.GIT_TERMINAL_PROMPT;
-				} else {
-					process.env.GIT_TERMINAL_PROMPT = previousGitTerminalPrompt;
-				}
-			}
-
-			// Should have attempted clone, not thrown unsupported error
-			expect(events.some((e) => e.type === "start" && e.action === "install")).toBe(true);
+			expect(parsed).toMatchObject({ type: "git", host: "github.com", path: "example/repo" });
 		});
 
 		it("should parse package source types from docs examples", () => {
@@ -1481,7 +1464,7 @@ Content`,
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "manifest-pkg",
-					pi: {
+					openabcode: {
 						extensions: ["extensions", "node_modules/dep/extensions", "!**/skip.ts"],
 					},
 				}),
@@ -1509,7 +1492,7 @@ Content`,
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "skill-manifest-pkg",
-					pi: {
+					openabcode: {
 						skills: ["skills", "!**/bad-skill"],
 					},
 				}),
@@ -1536,7 +1519,7 @@ Content`,
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "skill-manifest-glob-pkg",
-					pi: {
+					openabcode: {
 						skills: ["./plugins/*/skills"],
 					},
 				}),
@@ -1561,7 +1544,7 @@ Content`,
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "layered-pkg",
-					pi: {
+					openabcode: {
 						extensions: ["extensions", "!**/baz.ts"],
 					},
 				}),
@@ -1812,7 +1795,7 @@ Content`,
 				join(pkgDir, "package.json"),
 				JSON.stringify({
 					name: "manifest-force-pkg",
-					pi: {
+					openabcode: {
 						extensions: ["extensions", "!**/two.ts", "+extensions/two.ts"],
 					},
 				}),
@@ -2034,7 +2017,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 			expect(result.extensions.some((r) => pathEndsWith(r.path, "agents.ts"))).toBe(false);
 		});
 
-		it("should respect package.json pi.extensions manifest in subdirectories", async () => {
+		it("should respect package.json openabcode.extensions manifest in subdirectories", async () => {
 			const pkgDir = join(tempDir, "manifest-subdir-pkg");
 			mkdirSync(join(pkgDir, "extensions", "custom"), { recursive: true });
 
@@ -2042,7 +2025,7 @@ export default function(api) { api.registerTool({ name: "test", description: "te
 			writeFileSync(
 				join(pkgDir, "extensions", "custom", "package.json"),
 				JSON.stringify({
-					pi: {
+					openabcode: {
 						extensions: ["./main.ts"],
 					},
 				}),
