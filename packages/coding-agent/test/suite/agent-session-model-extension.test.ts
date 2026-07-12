@@ -44,6 +44,97 @@ describe("AgentSession model and extension characterization", () => {
 		).toEqual([`${nextModel.provider}/${nextModel.id}`]);
 	});
 
+	it("setModel preserves automatic routing when requested", async () => {
+		const harness = await createHarness({
+			models: [
+				{ id: "faux-1", name: "One", reasoning: true },
+				{ id: "faux-2", name: "Two", reasoning: true },
+			],
+		});
+		harnesses.push(harness);
+		harness.session.setRouteMode("auto");
+
+		await harness.session.setModel(harness.getModel("faux-2")!, { preserveRouteMode: true });
+
+		expect(harness.session.routeMode).toBe("auto");
+		expect(harness.session.model?.id).toBe("faux-2");
+	});
+
+	it("setModel remains a manual override by default", async () => {
+		const harness = await createHarness({
+			models: [
+				{ id: "faux-1", name: "One", reasoning: true },
+				{ id: "faux-2", name: "Two", reasoning: true },
+			],
+		});
+		harnesses.push(harness);
+		harness.session.setRouteMode("auto");
+
+		await harness.session.setModel(harness.getModel("faux-2")!);
+
+		expect(harness.session.routeMode).toBe("manual");
+	});
+
+	it("starts with Route off when an enabled setting has no classifier model", async () => {
+		const harness = await createHarness({ settings: { router: { enabled: true } } });
+		harnesses.push(harness);
+
+		expect(harness.session.routeMode).toBe("manual");
+	});
+
+	it("audits every completed classification and only switches models when needed", async () => {
+		const harness = await createHarness({ models: [{ id: "classifier", name: "Classifier" }] });
+		harnesses.push(harness);
+		const classifier = harness.getModel("classifier")!;
+
+		for (const [provider, id] of [
+			["openai", "gpt-route"],
+			["google", "gemini-route"],
+			["anthropic", "claude-route"],
+		] as const) {
+			harness.authStorage.setRuntimeApiKey(provider, `${provider}-key`);
+			harness.session.modelRegistry.registerProvider(provider, {
+				baseUrl: classifier.baseUrl,
+				apiKey: `${provider}-key`,
+				api: classifier.api,
+				models: [
+					{
+						id,
+						name: id,
+						reasoning: false,
+						input: ["text"],
+						cost: classifier.cost,
+						contextWindow: classifier.contextWindow,
+						maxTokens: classifier.maxTokens,
+					},
+				],
+			});
+			harness.settingsManager.setRouterModel(provider, `${provider}/${id}`);
+		}
+		harness.settingsManager.setRouterClassifierModel(classifier.provider, classifier.id);
+		harness.session.setRouteMode("auto");
+		harness.setResponses([fauxAssistantMessage("anthropic"), fauxAssistantMessage("anthropic")]);
+
+		const maybeRoute = (
+			harness.session as unknown as { _maybeRouteModel(text: string): Promise<void> }
+		)._maybeRouteModel.bind(harness.session);
+		await maybeRoute("refactor this service");
+		await maybeRoute("debug the same service");
+
+		expect(harness.session.model?.id).toBe("claude-route");
+		const routingEntries = harness.sessionManager
+			.getEntries()
+			.filter((entry) => entry.type === "custom" && entry.customType === "openabcode-routing");
+		expect(routingEntries).toHaveLength(2);
+		expect(routingEntries[0]?.data).toMatchObject({
+			provider: "anthropic",
+			classifierModel: { provider: classifier.provider, id: classifier.id },
+			model: { provider: "anthropic", id: "claude-route" },
+		});
+		expect(harness.sessionManager.getEntries().filter((entry) => entry.type === "model_change")).toHaveLength(1);
+		expect(harness.getPendingResponseCount()).toBe(0);
+	});
+
 	it("cycles through scoped models and preserves the scoped thinking preference", async () => {
 		const harness = await createHarness({
 			models: [

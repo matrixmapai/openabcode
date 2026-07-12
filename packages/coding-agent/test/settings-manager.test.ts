@@ -534,6 +534,20 @@ describe("SettingsManager", () => {
 			expect(saved.router).toEqual({ models: { openai: "openrouter/openai/gpt-5.5" } });
 		});
 
+		it("stores the Route classifier model without changing family models", async () => {
+			const manager = SettingsManager.create(projectDir, agentDir);
+			manager.setRouterModel("google", "openabcode/gemini-3.5-flash");
+			manager.setRouterClassifierModel("openabcode", "gemini-3.1-flash-lite");
+			await manager.flush();
+
+			const saved = JSON.parse(readFileSync(join(agentDir, "settings.json"), "utf-8"));
+			expect(manager.getRouterClassifierModel()).toBe("openabcode/gemini-3.1-flash-lite");
+			expect(saved.router).toEqual({
+				classifierModel: "openabcode/gemini-3.1-flash-lite",
+				models: { google: "openabcode/gemini-3.5-flash" },
+			});
+		});
+
 		it("atomically stores a fixed model and disables routing", async () => {
 			const manager = SettingsManager.create(projectDir, agentDir);
 			manager.setFixedModelAndDisableRouter("anthropic", "claude-sonnet-4-6");

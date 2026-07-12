@@ -64,6 +64,7 @@ export type DefaultProjectTrust = "ask" | "always" | "never";
 export interface RouterSettings {
 	enabled?: boolean; // default: false until the interactive Route setup is completed
 	setupCompleted?: boolean;
+	classifierModel?: string; // "provider/modelId" used to classify each task
 	models?: {
 		google?: string; // "provider/modelId" preferred for google-routed tasks
 		anthropic?: string; // "provider/modelId" preferred for anthropic-routed tasks
@@ -766,6 +767,19 @@ export class SettingsManager {
 		this.globalSettings.router = {
 			...this.globalSettings.router,
 			models: { ...this.globalSettings.router?.models, [provider]: modelRef },
+		};
+		this.markModified("router");
+		this.save();
+	}
+
+	getRouterClassifierModel(): string | undefined {
+		return this.settings.router?.classifierModel;
+	}
+
+	setRouterClassifierModel(provider: string, modelId: string): void {
+		this.globalSettings.router = {
+			...this.globalSettings.router,
+			classifierModel: `${provider}/${modelId}`,
 		};
 		this.markModified("router");
 		this.save();

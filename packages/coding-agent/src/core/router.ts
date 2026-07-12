@@ -1,12 +1,13 @@
 /**
  * OpenABCode task router.
  *
- * Classifies each coding task with a cheap LLM call (Gemini Flash) and picks the
- * best available model for the chosen provider. Ported from the opencode-based
+ * Classifies each coding task with the configured Route model and picks the best
+ * available model for the chosen provider. Ported from the opencode-based
  * OpenABCode core (packages/core/src/router.ts) onto the openabcode runtime.
  */
 
-import type { Api, Model } from "@openabcode/ai";
+import type { Api, Model, SimpleStreamOptions } from "@openabcode/ai";
+import { completeSimple } from "@openabcode/ai/compat";
 import { OPENABCODE_HOSTED_UPSTREAM, OPENABCODE_PROVIDER } from "./openabcode-provider.ts";
 
 export type ProviderChoice = "google" | "anthropic" | "openai";
@@ -20,6 +21,7 @@ export interface RouteSignal {
 export interface RoutingDecision {
 	provider: ProviderChoice;
 	source: "classifier" | "preferred";
+	classifierModel: { provider: string; id: string };
 	model: { provider: string; id: string };
 	previousModel?: { provider: string; id: string };
 	timestamp: number;
@@ -30,18 +32,7 @@ export const ROUTING_ENTRY_TYPE = "openabcode-routing";
 
 // --- LLM Classifier ---
 
-const CLASSIFIER_MODEL = "gemini-3-flash-preview";
-const CLASSIFIER_TIMEOUT_MS = 3_000;
-const CLASSIFIER_URL = "https://generativelanguage.googleapis.com/v1beta/models";
-
-export function classifierApiKey(): string | undefined {
-	return (
-		process.env.GEMINI_API_KEY ??
-		process.env.GOOGLE_GENERATIVE_AI_API_KEY ??
-		process.env.GEMINI_AISTUDIO_API_KEY ??
-		process.env.GOOGLE_AI_STUDIO_API_KEY
-	);
-}
+const CLASSIFIER_TIMEOUT_MS = 60_000;
 
 function classifierPrompt(text: string, fileNames: string[], projectFiles: string[]): string {
 	return `You are a coding task router. Given the project context and user request, choose which AI model provider should handle this task.
@@ -59,43 +50,49 @@ Return ONLY one of: "google", "anthropic", "openai"`;
 }
 
 /**
- * Use Gemini Flash to directly choose the best provider for this task.
+ * Use the configured classifier model to choose the best provider for this task.
  * Falls back to "anthropic" (default) on any failure or timeout.
  */
-export async function classifyProvider(input: RouteSignal, apiKey = classifierApiKey()): Promise<ProviderChoice> {
-	if (!apiKey) return "anthropic";
-
+export async function classifyProvider(
+	model: Model<Api>,
+	input: RouteSignal,
+	options: SimpleStreamOptions,
+): Promise<ProviderChoice> {
 	const fileNames = (input.fileNames ?? []).filter(Boolean);
 	const projectFiles = input.projectFiles ?? [];
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), CLASSIFIER_TIMEOUT_MS);
 
 	try {
-		const controller = new AbortController();
-		const timeout = setTimeout(() => controller.abort(), CLASSIFIER_TIMEOUT_MS);
+		const response = await completeSimple(
+			model,
+			{
+				systemPrompt: "Classify the coding task into exactly one model provider.",
+				messages: [
+					{
+						role: "user",
+						content: [{ type: "text", text: classifierPrompt(input.text, fileNames, projectFiles) }],
+						timestamp: Date.now(),
+					},
+				],
+			},
+			{ ...options, signal: controller.signal, temperature: 0, maxTokens: 16 },
+		);
 
-		const response = await fetch(`${CLASSIFIER_URL}/${CLASSIFIER_MODEL}:generateContent?key=${apiKey}`, {
-			method: "POST",
-			headers: { "Content-Type": "application/json" },
-			signal: controller.signal,
-			body: JSON.stringify({
-				contents: [{ parts: [{ text: classifierPrompt(input.text, fileNames, projectFiles) }] }],
-				generationConfig: {
-					temperature: 0,
-					maxOutputTokens: 16,
-				},
-			}),
-		});
-		clearTimeout(timeout);
-
-		if (!response.ok) return "anthropic";
-
-		const data = (await response.json()) as {
-			candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
-		};
-		const raw = data.candidates?.[0]?.content?.parts?.[0]?.text?.trim().toLowerCase().replace(/"/g, "");
+		if (response.stopReason === "error" || response.stopReason === "aborted") return "anthropic";
+		const raw = response.content
+			.filter((part): part is { type: "text"; text: string } => part.type === "text")
+			.map((part) => part.text)
+			.join("")
+			.trim()
+			.toLowerCase()
+			.replace(/"/g, "");
 		if (raw === "google" || raw === "anthropic" || raw === "openai") return raw;
 		return "anthropic";
 	} catch {
 		return "anthropic";
+	} finally {
+		clearTimeout(timeout);
 	}
 }
 

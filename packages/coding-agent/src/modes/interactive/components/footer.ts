@@ -42,6 +42,13 @@ export function formatCwdForFooter(cwd: string, home: string | undefined): strin
 	return relativeToHome === "" ? "~" : `~${sep}${relativeToHome}`;
 }
 
+function formatRouteModel(reference: string | undefined): string {
+	if (!reference) return "not configured";
+	const separator = reference.indexOf("/");
+	if (separator <= 0 || separator === reference.length - 1) return reference;
+	return reference.slice(separator + 1);
+}
+
 /**
  * Footer component that shows pwd, token stats, and context usage.
  * Computes token/context stats from session, gets git branch and extension statuses from provider.
@@ -167,6 +174,7 @@ export class FooterComponent implements Component {
 
 		// Add model name on the right side, plus thinking level if model supports it
 		const modelName = state.model?.id || "no-model";
+		const showCurrentModel = this.session.routeMode !== "auto";
 
 		let statsLeftWidth = visibleWidth(statsLeft);
 
@@ -180,8 +188,8 @@ export class FooterComponent implements Component {
 		const minPadding = 2;
 
 		// Add thinking level indicator if model supports reasoning
-		let rightSideWithoutProvider = modelName;
-		if (state.model?.reasoning) {
+		let rightSideWithoutProvider = showCurrentModel ? modelName : "";
+		if (showCurrentModel && state.model?.reasoning) {
 			const thinkingLevel = state.thinkingLevel || "off";
 			rightSideWithoutProvider =
 				thinkingLevel === "off" ? `${modelName} • thinking off` : `${modelName} • ${thinkingLevel}`;
@@ -189,7 +197,7 @@ export class FooterComponent implements Component {
 
 		// Prepend the provider in parentheses if there are multiple providers and there's enough room
 		let rightSide = rightSideWithoutProvider;
-		if (this.footerData.getAvailableProviderCount() > 1 && state.model) {
+		if (showCurrentModel && this.footerData.getAvailableProviderCount() > 1 && state.model) {
 			rightSide = `(${state.model!.provider}) ${rightSideWithoutProvider}`;
 			if (statsLeftWidth + minPadding + visibleWidth(rightSide) > width) {
 				// Too wide, fall back
@@ -198,7 +206,8 @@ export class FooterComponent implements Component {
 		}
 
 		const rightSideWidth = visibleWidth(rightSide);
-		const totalNeeded = statsLeftWidth + minPadding + rightSideWidth;
+		const effectivePadding = rightSideWidth > 0 ? minPadding : 0;
+		const totalNeeded = statsLeftWidth + effectivePadding + rightSideWidth;
 
 		let statsLine: string;
 		if (totalNeeded <= width) {
@@ -207,7 +216,7 @@ export class FooterComponent implements Component {
 			statsLine = statsLeft + padding + rightSide;
 		} else {
 			// Need to truncate right side
-			const availableForRight = width - statsLeftWidth - minPadding;
+			const availableForRight = width - statsLeftWidth - effectivePadding;
 			if (availableForRight > 0) {
 				const truncatedRight = truncateToWidth(rightSide, availableForRight, "");
 				const truncatedRightWidth = visibleWidth(truncatedRight);
@@ -228,6 +237,17 @@ export class FooterComponent implements Component {
 
 		const pwdLine = truncateToWidth(theme.fg("dim", pwd), width, theme.fg("dim", "..."));
 		const lines = [pwdLine, dimStatsLeft + dimRemainder];
+
+		if (this.session.routeMode === "auto") {
+			const routeModels = this.session.settingsManager.getRouterModels();
+			const routeLine = [
+				"Route",
+				formatRouteModel(routeModels.openai),
+				formatRouteModel(routeModels.google),
+				formatRouteModel(routeModels.anthropic),
+			].join(" · ");
+			lines.push(truncateToWidth(theme.fg("dim", routeLine), width, theme.fg("dim", "...")));
+		}
 
 		// Add extension statuses on a single line, sorted by key alphabetically
 		const extensionStatuses = this.footerData.getExtensionStatuses();

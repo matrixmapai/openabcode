@@ -21,6 +21,8 @@ function createSession(options: {
 	reasoning?: boolean;
 	thinkingLevel?: string;
 	usage?: AssistantUsage;
+	routeMode?: "auto" | "manual";
+	routerModels?: { openai?: string; google?: string; anthropic?: string };
 }): AgentSession {
 	const usage = options.usage;
 	const entries =
@@ -54,6 +56,10 @@ function createSession(options: {
 		getContextUsage: () => ({ contextWindow: 200_000, percent: 12.3 }),
 		modelRegistry: {
 			isUsingOAuth: () => false,
+		},
+		routeMode: options.routeMode ?? "manual",
+		settingsManager: {
+			getRouterModels: () => options.routerModels ?? {},
 		},
 	};
 
@@ -140,5 +146,42 @@ describe("FooterComponent width handling", () => {
 
 		const statsLine = stripAnsi(footer.render(120)[1]);
 		expect(statsLine).toContain("CH25.0%");
+	});
+
+	it("shows all configured route models when Route is on", () => {
+		const session = createSession({
+			sessionName: "",
+			routeMode: "auto",
+			routerModels: {
+				openai: "openabcode/gpt-4o",
+				google: "openabcode/gemini-3.1-flash-lite",
+				anthropic: "openabcode/claude-haiku-4.5",
+			},
+		});
+		const footer = new FooterComponent(session, createFooterData(1));
+
+		const lines = footer.render(200).map(stripAnsi);
+		expect(lines[1]).not.toContain("test-model");
+		expect(lines[1]).not.toContain("[test]");
+		const routeLine = lines[2];
+		expect(routeLine).toBe("Route · gpt-4o · gemini-3.1-flash-lite · claude-haiku-4.5");
+	});
+
+	it("keeps the Route summary within narrow terminal widths", () => {
+		const width = 48;
+		const session = createSession({
+			sessionName: "",
+			routeMode: "auto",
+			routerModels: {
+				openai: "openabcode/gpt-5.5-pro",
+				google: "openabcode/gemini-3.1-pro-preview",
+				anthropic: "openabcode/claude-opus-4-8",
+			},
+		});
+		const footer = new FooterComponent(session, createFooterData(1));
+
+		for (const line of footer.render(width)) {
+			expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+		}
 	});
 });

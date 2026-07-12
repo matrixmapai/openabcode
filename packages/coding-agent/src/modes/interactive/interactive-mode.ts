@@ -2667,6 +2667,12 @@ export class InteractiveMode {
 				this.handleRouteCommand(arg);
 				return;
 			}
+			if (text === "/route-model" || text.startsWith("/route-model ")) {
+				const arg = text.startsWith("/route-model ") ? text.slice(13).trim() : undefined;
+				this.editor.setText("");
+				await this.handleRouteModelCommand(arg);
+				return;
+			}
 			if (text === "/export" || text.startsWith("/export ")) {
 				await this.handleExportCommand(text);
 				this.editor.setText("");
@@ -4317,7 +4323,7 @@ export class InteractiveMode {
 		const model = await this.findExactModelMatch(searchTerm);
 		if (model) {
 			try {
-				await this.session.setModel(model);
+				await this.session.setModel(model, { preserveRouteMode: this.session.routeMode === "auto" });
 				this.saveRouteModelForFamily(model);
 				this.footer.invalidate();
 				this.updateEditorBorderColor();
@@ -4533,7 +4539,7 @@ export class InteractiveMode {
 				this.session.scopedModels,
 				async (model) => {
 					try {
-						await this.session.setModel(model);
+						await this.session.setModel(model, { preserveRouteMode: this.session.routeMode === "auto" });
 						this.saveRouteModelForFamily(model);
 						this.footer.invalidate();
 						this.updateEditorBorderColor();
@@ -5694,6 +5700,40 @@ export class InteractiveMode {
 		this.showRouteSelector();
 	}
 
+	private async handleRouteModelCommand(arg: string | undefined): Promise<void> {
+		if (arg) {
+			this.showError("Usage: /route-model");
+			return;
+		}
+
+		const configuredRef = this.settingsManager.getRouterClassifierModel();
+		const [configuredProvider, ...configuredIdParts] = configuredRef?.split("/") ?? [];
+		const configuredModel = configuredProvider
+			? this.session.modelRegistry.find(configuredProvider, configuredIdParts.join("/"))
+			: undefined;
+		this.showSelector((done) => {
+			const selector = new ModelSelectorComponent(
+				this.ui,
+				configuredModel,
+				this.settingsManager,
+				this.session.modelRegistry,
+				[],
+				(model) => {
+					this.settingsManager.setRouterClassifierModel(model.provider, model.id);
+					done();
+					this.showStatus(`Route model: ${model.id} [${model.provider}]`);
+				},
+				() => {
+					done();
+					this.ui.requestRender();
+				},
+				undefined,
+				{ title: "Select Route classifier model", saveAsDefault: false },
+			);
+			return { component: selector, focus: selector };
+		});
+	}
+
 	private showRouteSelector(title = "Route"): void {
 		this.showSelector((done) => {
 			const selector = new ChoiceSelectorComponent(
@@ -5716,6 +5756,19 @@ export class InteractiveMode {
 
 	private async enableRouteIfConfigured(): Promise<void> {
 		const models = await this.getModelCandidates();
+		const classifierRef = this.settingsManager.getRouterClassifierModel();
+		const [classifierProvider, ...classifierIdParts] = classifierRef?.split("/") ?? [];
+		const classifier = classifierProvider
+			? this.session.modelRegistry.find(classifierProvider, classifierIdParts.join("/"))
+			: undefined;
+		if (!classifier || !this.session.modelRegistry.hasConfiguredAuth(classifier)) {
+			this.session.setRouteMode("manual");
+			this.settingsManager.setRouterEnabledAndSetupCompleted(false);
+			this.footer.invalidate();
+			this.showWarning("Route classifier model is missing or unavailable. Run /route-model.");
+			this.showStatus("Route off");
+			return;
+		}
 		const configured = this.settingsManager.getRouterModels();
 		const slots: ProviderChoice[] = ["openai", "google", "anthropic"];
 		const missing = slots.filter((slot) => {

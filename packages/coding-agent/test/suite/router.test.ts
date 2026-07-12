@@ -1,14 +1,9 @@
 import type { Api, Model } from "@openabcode/ai";
-import { afterEach, describe, expect, it } from "vitest";
+import { fauxAssistantMessage, registerFauxProvider } from "@openabcode/ai/compat";
+import { describe, expect, it } from "vitest";
 import { OPENABCODE_HOSTED_UPSTREAM, OPENABCODE_PROVIDER } from "../../src/core/openabcode-provider.ts";
 import { classifyProvider, pickRouteModel, routeProviderOf } from "../../src/core/router.ts";
-
-const CLASSIFIER_ENV_VARS = [
-	"GEMINI_API_KEY",
-	"GOOGLE_GENERATIVE_AI_API_KEY",
-	"GEMINI_AISTUDIO_API_KEY",
-	"GOOGLE_AI_STUDIO_API_KEY",
-];
+import { BUILTIN_SLASH_COMMANDS } from "../../src/core/slash-commands.ts";
 
 function model(provider: string, id: string): Model<Api> {
 	return {
@@ -28,27 +23,27 @@ function model(provider: string, id: string): Model<Api> {
 }
 
 describe("OpenABCode router", () => {
-	const savedEnv = new Map<string, string | undefined>();
+	it("classifyProvider uses the configured model", async () => {
+		const faux = registerFauxProvider();
+		faux.setResponses([fauxAssistantMessage("openai")]);
 
-	afterEach(() => {
-		for (const [name, value] of savedEnv) {
-			if (value === undefined) delete process.env[name];
-			else process.env[name] = value;
+		try {
+			const choice = await classifyProvider(
+				faux.getModel(),
+				{ text: "review this concurrency code" },
+				{ apiKey: "faux-key" },
+			);
+			expect(choice).toBe("openai");
+			expect(faux.getPendingResponseCount()).toBe(0);
+		} finally {
+			faux.unregister();
 		}
-		savedEnv.clear();
 	});
 
-	function clearClassifierEnv(): void {
-		for (const name of CLASSIFIER_ENV_VARS) {
-			savedEnv.set(name, process.env[name]);
-			delete process.env[name];
-		}
-	}
-
-	it("classifyProvider falls back to anthropic without an API key", async () => {
-		clearClassifierEnv();
-		const choice = await classifyProvider({ text: "refactor this module" });
-		expect(choice).toBe("anthropic");
+	it("registers the route-model command", () => {
+		expect(BUILTIN_SLASH_COMMANDS.find((command) => command.name === "route-model")?.description).toContain(
+			"classify",
+		);
 	});
 
 	it("routeProviderOf maps direct providers", () => {

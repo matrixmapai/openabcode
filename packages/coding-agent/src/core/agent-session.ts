@@ -86,13 +86,7 @@ import type { BashExecutionMessage, CustomMessage } from "./messages.ts";
 import type { ModelRegistry } from "./model-registry.ts";
 import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.ts";
 import type { ResourceExtensionPaths, ResourceLoader } from "./resource-loader.ts";
-import {
-	classifierApiKey,
-	classifyProvider,
-	pickRouteModel,
-	ROUTING_ENTRY_TYPE,
-	type RoutingDecision,
-} from "./router.ts";
+import { classifyProvider, pickRouteModel, ROUTING_ENTRY_TYPE, type RoutingDecision } from "./router.ts";
 import type { BranchSummaryEntry, CompactionEntry, SessionEntry, SessionManager } from "./session-manager.ts";
 import { CURRENT_SESSION_VERSION, getLatestCompactionEntry, type SessionHeader } from "./session-manager.ts";
 import type { SettingsManager } from "./settings-manager.ts";
@@ -358,7 +352,17 @@ export class AgentSession {
 		this._customTools = config.customTools ?? [];
 		this._cwd = config.cwd;
 		this._modelRegistry = config.modelRegistry;
-		this._routeMode = config.settingsManager.getRouterEnabled() ? "auto" : "manual";
+		const classifierRef = config.settingsManager.getRouterClassifierModel();
+		const [classifierProvider, ...classifierIdParts] = classifierRef?.split("/") ?? [];
+		const classifierModel = classifierProvider
+			? this._modelRegistry.find(classifierProvider, classifierIdParts.join("/"))
+			: undefined;
+		this._routeMode =
+			config.settingsManager.getRouterEnabled() &&
+			classifierModel !== undefined &&
+			this._modelRegistry.hasConfiguredAuth(classifierModel)
+				? "auto"
+				: "manual";
 		this._extensionRunnerRef = config.extensionRunnerRef;
 		this._initialActiveToolNames = config.initialActiveToolNames;
 		this._allowedToolNames = config.allowedToolNames ? new Set(config.allowedToolNames) : undefined;
@@ -1555,18 +1559,26 @@ export class AgentSession {
 	/**
 	 * OpenABCode task router: classify the prompt and switch to the best
 	 * available model before the provider turn. No-op when routing is manual,
-	 * no classifier key is configured, or no eligible model is available.
+	 * no authenticated classifier model is configured, or no eligible model is available.
 	 * The switch is per-turn: it does not persist a new default model.
 	 */
 	private async _maybeRouteModel(text: string): Promise<void> {
 		if (this._routeMode !== "auto") return;
-		if (!classifierApiKey()) return;
 		if (!text.trim()) return;
 
-		// Skip the classifier call entirely when no routable model is available.
 		const available = this._modelRegistry.getAvailable();
 		const hasAuth = (model: Model<any>) => this._modelRegistry.hasConfiguredAuth(model);
 		const configured = this.settingsManager.getRouterModels();
+		const classifierRef = this.settingsManager.getRouterClassifierModel();
+		if (!classifierRef) return;
+		const [classifierProvider, ...classifierIdParts] = classifierRef.split("/");
+		const classifierId = classifierIdParts.join("/");
+		const classifierModel = available.find(
+			(model) => model.provider === classifierProvider && model.id === classifierId && hasAuth(model),
+		);
+		if (!classifierModel) return;
+
+		// Skip the classifier call entirely when any execution family is unavailable.
 		const routeChoices = ["openai", "google", "anthropic"] as const;
 		if (routeChoices.some((choice) => !pickRouteModel(choice, available, hasAuth, configured))) return;
 
@@ -1577,25 +1589,36 @@ export class AgentSession {
 			// Routing signals are best-effort; classify without project files.
 		}
 
-		const choice = await classifyProvider({ text, projectFiles });
+		const auth = await this._modelRegistry.getApiKeyAndHeaders(classifierModel);
+		if (!auth.ok) return;
+		const choice = await classifyProvider(
+			classifierModel,
+			{ text, projectFiles },
+			{
+				apiKey: auth.apiKey,
+				headers: auth.headers,
+				env: auth.env,
+			},
+		);
 		const picked = pickRouteModel(choice, available, hasAuth, configured);
 		if (!picked) return;
 
 		const previousModel = this.model;
-		if (previousModel && modelsAreEqual(picked.model, previousModel)) return;
-
 		const decision: RoutingDecision = {
 			provider: choice,
 			source: picked.source,
+			classifierModel: { provider: classifierModel.provider, id: classifierModel.id },
 			model: { provider: picked.model.provider, id: picked.model.id },
 			previousModel: previousModel ? { provider: previousModel.provider, id: previousModel.id } : undefined,
 			timestamp: Date.now(),
 		};
+		this.sessionManager.appendCustomEntry(ROUTING_ENTRY_TYPE, decision);
+
+		if (previousModel && modelsAreEqual(picked.model, previousModel)) return;
 
 		const thinkingLevel = this._getThinkingLevelForModelSwitch();
 		this.agent.state.model = picked.model;
 		this.sessionManager.appendModelChange(picked.model.provider, picked.model.id);
-		this.sessionManager.appendCustomEntry(ROUTING_ENTRY_TYPE, decision);
 		this.setThinkingLevel(thinkingLevel);
 		await this._emitModelSelect(picked.model, previousModel, "route");
 	}
@@ -1605,13 +1628,15 @@ export class AgentSession {
 	 * Validates that auth is configured, saves to session and settings.
 	 * @throws Error if no auth is configured for the model
 	 */
-	async setModel(model: Model<any>): Promise<void> {
+	async setModel(model: Model<any>, options: { preserveRouteMode?: boolean } = {}): Promise<void> {
 		if (!this._modelRegistry.hasConfiguredAuth(model)) {
 			throw new Error(`No API key for ${model.provider}/${model.id}`);
 		}
 
-		// Explicit model choice is a manual override: stop auto-routing for this session.
-		this._routeMode = "manual";
+		if (!options.preserveRouteMode) {
+			// Explicit model choices outside Route configuration are manual overrides.
+			this._routeMode = "manual";
+		}
 
 		const previousModel = this.model;
 		const thinkingLevel = this._getThinkingLevelForModelSwitch();
