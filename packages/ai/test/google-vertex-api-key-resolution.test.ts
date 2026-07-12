@@ -50,6 +50,7 @@ import { getModel } from "../src/compat.ts";
 import type { Context, Model } from "../src/types.ts";
 
 const model = getModel("google-vertex", "gemini-3-flash-preview");
+const TEST_API_KEY = "test-google-vertex-api-key";
 const context: Context = {
 	messages: [{ role: "user", content: "hello", timestamp: Date.now() }],
 };
@@ -130,7 +131,7 @@ describe("google-vertex api key resolution", () => {
 
 	it("still uses the API key client for real API keys", async () => {
 		const stream = streamGoogleVertex(model, context, {
-			apiKey: "AIzaSyExampleRealisticLookingApiKey123456",
+			apiKey: TEST_API_KEY,
 		});
 
 		await stream.result();
@@ -138,7 +139,7 @@ describe("google-vertex api key resolution", () => {
 		expect(googleGenAiMock.constructorCalls).toHaveLength(1);
 		expect(googleGenAiMock.constructorCalls[0]).toMatchObject({
 			vertexai: true,
-			apiKey: "AIzaSyExampleRealisticLookingApiKey123456",
+			apiKey: TEST_API_KEY,
 			apiVersion: "v1",
 		});
 		expect(googleGenAiMock.constructorCalls[0]).not.toHaveProperty("project");
@@ -182,7 +183,7 @@ describe("google-vertex api key resolution", () => {
 	it("forwards custom baseUrl to the API key client", async () => {
 		const customModel: Model<"google-vertex"> = { ...model, baseUrl: "https://proxy.example.com" };
 		const stream = streamGoogleVertex(customModel, context, {
-			apiKey: "AIzaSyExampleRealisticLookingApiKey123456",
+			apiKey: TEST_API_KEY,
 		});
 
 		await stream.result();
@@ -190,7 +191,7 @@ describe("google-vertex api key resolution", () => {
 		expect(googleGenAiMock.constructorCalls).toHaveLength(1);
 		expect(googleGenAiMock.constructorCalls[0]).toMatchObject({
 			vertexai: true,
-			apiKey: "AIzaSyExampleRealisticLookingApiKey123456",
+			apiKey: TEST_API_KEY,
 			apiVersion: "v1",
 			httpOptions: {
 				baseUrl: "https://proxy.example.com",
