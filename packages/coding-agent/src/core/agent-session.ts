@@ -86,7 +86,13 @@ import type { BashExecutionMessage, CustomMessage } from "./messages.ts";
 import type { ModelRegistry } from "./model-registry.ts";
 import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.ts";
 import type { ResourceExtensionPaths, ResourceLoader } from "./resource-loader.ts";
-import { classifyProvider, pickRouteModel, ROUTING_ENTRY_TYPE, type RoutingDecision } from "./router.ts";
+import {
+	classifyProvider,
+	pickRouteModel,
+	ROUTE_PROVIDER_CHOICES,
+	ROUTING_ENTRY_TYPE,
+	type RoutingDecision,
+} from "./router.ts";
 import type { BranchSummaryEntry, CompactionEntry, SessionEntry, SessionManager } from "./session-manager.ts";
 import { CURRENT_SESSION_VERSION, getLatestCompactionEntry, type SessionHeader } from "./session-manager.ts";
 import type { SettingsManager } from "./settings-manager.ts";
@@ -1579,8 +1585,7 @@ export class AgentSession {
 		if (!classifierModel) return;
 
 		// Skip the classifier call entirely when any execution family is unavailable.
-		const routeChoices = ["openai", "google", "anthropic"] as const;
-		if (routeChoices.some((choice) => !pickRouteModel(choice, available, hasAuth, configured))) return;
+		if (ROUTE_PROVIDER_CHOICES.some((choice) => !pickRouteModel(choice, available, hasAuth, configured))) return;
 
 		let projectFiles: string[] = [];
 		try {

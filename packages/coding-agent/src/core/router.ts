@@ -10,7 +10,19 @@ import type { Api, Model, SimpleStreamOptions } from "@openabcode/ai";
 import { completeSimple } from "@openabcode/ai/compat";
 import { OPENABCODE_HOSTED_UPSTREAM, OPENABCODE_PROVIDER } from "./openabcode-provider.ts";
 
-export type ProviderChoice = "google" | "anthropic" | "openai";
+export const ROUTE_PROVIDER_CHOICES = ["openai", "google", "anthropic"] as const;
+export type ProviderChoice = (typeof ROUTE_PROVIDER_CHOICES)[number];
+
+const DEFAULT_PROVIDER_CHOICE: ProviderChoice = "openai";
+const OPENROUTER_PROVIDER = "openrouter";
+const CLASSIFIER_SYSTEM_PROMPT = "Classify the coding task into exactly one model provider.";
+const ROUTING_RULES: Record<ProviderChoice, string> = {
+	openai:
+		"Logic and automation — algorithms, code review, testing, type systems, concurrency, multimodal/vision, data analysis, scripting, DevOps",
+	google: "Google ecosystem tasks — Android, Flutter, GCP, Firebase, Chrome extensions, Kotlin, Gradle, Google APIs",
+	anthropic:
+		"Engineering systems — refactoring, debugging, architecture, UI, complex coding tasks, long context, migrations, iOS/macOS apps, code quality",
+};
 
 export interface RouteSignal {
 	text: string;
@@ -34,24 +46,26 @@ export const ROUTING_ENTRY_TYPE = "openabcode-routing";
 
 const CLASSIFIER_TIMEOUT_MS = 60_000;
 
+function isProviderChoice(value: string): value is ProviderChoice {
+	return ROUTE_PROVIDER_CHOICES.some((provider) => provider === value);
+}
+
 function classifierPrompt(text: string, fileNames: string[], projectFiles: string[]): string {
 	return `You are a coding task router. Given the project context and user request, choose which AI model provider should handle this task.
 
 Routing rules:
-- "google": Google ecosystem tasks — Android, Flutter, GCP, Firebase, Chrome extensions, Kotlin, Gradle, Google APIs
-- "anthropic": Engineering systems — refactoring, debugging, architecture, UI, complex coding tasks, long context, migrations, iOS/macOS apps, code quality
-- "openai": Logic and automation — algorithms, code review, testing, type systems, concurrency, multimodal/vision, data analysis, scripting, DevOps
+${ROUTE_PROVIDER_CHOICES.map((provider) => `- "${provider}": ${ROUTING_RULES[provider]}`).join("\n")}
 
-Default to "anthropic" if the task does not clearly fit "google" or "openai".
+Default to "${DEFAULT_PROVIDER_CHOICE}" if the task does not clearly fit another provider.
 
 ${projectFiles.length > 0 ? `Project root files: ${projectFiles.join(", ")}\n` : ""}${fileNames.length > 0 ? `Files involved: ${fileNames.join(", ")}\n` : ""}Task: "${text}"
 
-Return ONLY one of: "google", "anthropic", "openai"`;
+Return ONLY one of: ${ROUTE_PROVIDER_CHOICES.map((provider) => `"${provider}"`).join(", ")}`;
 }
 
 /**
  * Use the configured classifier model to choose the best provider for this task.
- * Falls back to "anthropic" (default) on any failure or timeout.
+ * Falls back to "openai" (default) on any failure or timeout.
  */
 export async function classifyProvider(
 	model: Model<Api>,
@@ -67,7 +81,7 @@ export async function classifyProvider(
 		const response = await completeSimple(
 			model,
 			{
-				systemPrompt: "Classify the coding task into exactly one model provider.",
+				systemPrompt: CLASSIFIER_SYSTEM_PROMPT,
 				messages: [
 					{
 						role: "user",
@@ -79,7 +93,7 @@ export async function classifyProvider(
 			{ ...options, signal: controller.signal, temperature: 0, maxTokens: 16 },
 		);
 
-		if (response.stopReason === "error" || response.stopReason === "aborted") return "anthropic";
+		if (response.stopReason === "error" || response.stopReason === "aborted") return DEFAULT_PROVIDER_CHOICE;
 		const raw = response.content
 			.filter((part): part is { type: "text"; text: string } => part.type === "text")
 			.map((part) => part.text)
@@ -87,10 +101,10 @@ export async function classifyProvider(
 			.trim()
 			.toLowerCase()
 			.replace(/"/g, "");
-		if (raw === "google" || raw === "anthropic" || raw === "openai") return raw;
-		return "anthropic";
+		if (isProviderChoice(raw)) return raw;
+		return DEFAULT_PROVIDER_CHOICE;
 	} catch {
-		return "anthropic";
+		return DEFAULT_PROVIDER_CHOICE;
 	} finally {
 		clearTimeout(timeout);
 	}
@@ -103,15 +117,10 @@ export function routeProviderOf(model: Model<Api>): ProviderChoice | undefined {
 	if (model.provider === OPENABCODE_PROVIDER) {
 		return OPENABCODE_HOSTED_UPSTREAM[model.id];
 	}
-	if (model.provider === "openrouter") {
-		if (model.id.startsWith("anthropic/")) return "anthropic";
-		if (model.id.startsWith("openai/")) return "openai";
-		if (model.id.startsWith("google/")) return "google";
-		return undefined;
+	if (model.provider === OPENROUTER_PROVIDER) {
+		return ROUTE_PROVIDER_CHOICES.find((provider) => model.id.startsWith(`${provider}/`));
 	}
-	if (model.provider === "anthropic") return "anthropic";
-	if (model.provider === "openai") return "openai";
-	if (model.provider === "google") return "google";
+	if (isProviderChoice(model.provider)) return model.provider;
 	return undefined;
 }
 
