@@ -1,6 +1,6 @@
 # @openabcode/tui
 
-Minimal terminal UI framework with differential rendering and synchronized output for flicker-free interactive CLI applications.
+Terminal UI framework behind OpenABCode's interactive coding agent. `@openabcode/tui` renders the editor, model and Route selectors, streaming messages, tool output, session tree, footer, overlays, and inline images with differential rendering and synchronized output.
 
 ## Features
 

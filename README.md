@@ -52,11 +52,9 @@ User prompt
 
 | Package | Description |
 |---------|-------------|
+| **[@openabcode/coding-agent](packages/coding-agent)** | Route-first terminal coding agent CLI |
+| **[@openabcode/tui](packages/tui)** | Terminal UI renderer behind OpenABCode's interactive editor, model selectors, Route footer, and session views |
 | **[@openabcode/ai](packages/ai)** | Unified multi-provider LLM API (OpenAI, Anthropic, Google, etc.) |
-| **[@openabcode/agent-core](packages/agent)** | Agent runtime with tool calling and state management |
-| **[@openabcode/coding-agent](packages/coding-agent)** | Interactive coding agent CLI |
-| **[@openabcode/tui](packages/tui)** | Terminal UI library with differential rendering |
-| **[@openabcode/orchestrator](packages/orchestrator)** | Experimental multi-agent orchestration package |
 
 ## Permissions & Containerization
 
