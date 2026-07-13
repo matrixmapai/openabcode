@@ -21,6 +21,7 @@ OpenABCode runs in four modes: interactive, print or JSON, RPC for process integ
 
 - [Quick Start](#quick-start)
 - [Providers & Models](#providers--models)
+- [Route Mode](#route-mode)
 - [Interactive Mode](#interactive-mode)
   - [Editor](#editor)
   - [Commands](#commands)
@@ -124,6 +125,31 @@ See [docs/providers.md](docs/providers.md) for detailed setup instructions.
 
 ---
 
+## Route Mode
+
+Route mode classifies each non-empty prompt before the main agent turn and selects one configured execution model from the OpenAI, Google, or Anthropic family. The selected model then runs the normal agent and tool loop.
+
+Configure Route in the TUI:
+
+1. Run `/login` and configure the providers you want to use.
+2. Run `/route-model` and select the authenticated model that classifies tasks. This does not change the active execution model.
+3. Run `/model` and select one OpenAI-family model, one Google-family model, and one Anthropic-family model. Each selection is saved to its Route family.
+4. Run `/route` and select `on`.
+
+When Route is on, the footer shows the three configured execution models:
+
+```text
+Route · gpt-5.5 · gemini-3.5-flash · claude-haiku-4.5
+```
+
+These are the available Route choices, not the latest classification result. Every completed classification is persisted in the session JSONL as an `openabcode-routing` entry with the classifier model, selected family, execution model, previous model, and timestamp.
+
+Route can use direct providers, OpenRouter, or the OpenABCode hosted gateway. For example, `openabcode/gemini-3.1-flash-lite` is registered locally under the `openabcode` provider and routed by the gateway to Google's upstream provider.
+
+See [docs/usage.md#route-mode](docs/usage.md#route-mode) for settings JSON, audit examples, fallback behavior, and troubleshooting.
+
+---
+
 ## Interactive Mode
 
 The interface from top to bottom:
@@ -156,6 +182,8 @@ Type `/` in the editor to trigger commands. [Extensions](#extensions) can regist
 |---------|-------------|
 | `/login`, `/logout` | OAuth authentication |
 | `/model` | Switch models |
+| `/route-model` | Select the authenticated model used to classify Route tasks |
+| `/route` | Turn automatic task routing on or off |
 | `/scoped-models` | Enable/disable models for Ctrl+P cycling |
 | `/settings` | Thinking level, theme, message delivery, transport |
 | `/resume` | Pick from previous sessions |
