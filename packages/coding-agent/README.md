@@ -1,10 +1,9 @@
 <p align="center">
   <a href="https://openabcode.com">
-    <img alt="openabcode logo" src="https://openabcode.com/logo-auto.svg" width="128">
+    <img alt="openabcode logo" src="docs/images/logo.svg" width="128">
   </a>
 </p>
 <p align="center">
-  <a href="https://discord.com/invite/3cU7Bz4UPx"><img alt="Discord" src="https://img.shields.io/badge/discord-community-5865F2?style=flat-square&logo=discord&logoColor=white" /></a>
   <a href="https://www.npmjs.com/package/@openabcode/coding-agent"><img alt="npm" src="https://img.shields.io/npm/v/@openabcode/coding-agent?style=flat-square" /></a>
 </p>
 
@@ -126,8 +125,6 @@ See [docs/providers.md](docs/providers.md) for detailed setup instructions.
 ---
 
 ## Interactive Mode
-
-<p align="center"><img src="docs/images/interactive-mode.png" alt="Interactive Mode" width="600"></p>
 
 The interface from top to bottom:
 
