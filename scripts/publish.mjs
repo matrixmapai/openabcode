@@ -56,6 +56,25 @@ function validatePack(directory) {
 	console.log(`  ${packed.filename}: ${packed.files.length} files, ${packed.size} bytes packed, ${packed.unpackedSize} bytes unpacked`);
 }
 
+function distTagsFor(name) {
+	const result = spawnSync(commandForPlatform("npm"), ["dist-tag", "ls", name], {
+		encoding: "utf8",
+		stdio: ["inherit", "pipe", "pipe"],
+	});
+
+	if (result.status !== 0) {
+		return null;
+	}
+
+	return Object.fromEntries(
+		result.stdout
+			.split("\n")
+			.map((line) => line.trim())
+			.filter(Boolean)
+			.map((line) => line.split(/:\s+/, 2)),
+	);
+}
+
 function isPublished(name, version) {
 	const result = spawnSync(commandForPlatform("npm"), ["view", `${name}@${version}`, "version", "--json"], {
 		encoding: "utf8",
@@ -68,10 +87,19 @@ function isPublished(name, version) {
 
 	const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
 	if (result.status !== 0 && (output.includes("E404") || output.includes("404 Not Found"))) {
+		const tags = distTagsFor(name);
+		if (tags && Object.values(tags).includes(version)) {
+			console.warn(`${name}@${version} is present in npm dist-tags but not yet visible via npm view; treating it as published.`);
+			return true;
+		}
 		return false;
 	}
 
 	throw new Error(output ? `Failed to query ${name}@${version}\n${output}` : `Failed to query ${name}@${version}`);
+}
+
+function ensurePublicAccess(name) {
+	run("npm", ["access", "set", "status=public", name]);
 }
 
 const packageVersions = new Map();
@@ -117,10 +145,13 @@ console.log("All packages validated; starting publication.\n");
 
 for (const pkg of packageStates) {
 	if (pkg.published) {
-		console.log(`Skipping ${pkg.name}@${pkg.version}: already published\n`);
+		console.log(`Skipping ${pkg.name}@${pkg.version}: already published`);
+		ensurePublicAccess(pkg.name);
+		console.log();
 		continue;
 	}
 
 	run("npm", ["publish", "--access", "public", "--provenance", "--ignore-scripts"], { cwd: pkg.directory });
+	ensurePublicAccess(pkg.name);
 	console.log();
 }

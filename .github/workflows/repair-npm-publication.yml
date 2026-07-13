@@ -1,0 +1,50 @@
+name: Repair npm Publication
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Published version to repair, for example 1.0.0'
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+    steps:
+      - name: Setup Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Upgrade npm
+        run: |
+          npm install -g npm@11.16.0 --ignore-scripts
+          npm --version
+
+      - name: Repair package access and dist-tags
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+
+          packages=(
+            @openabcode/ai
+            @openabcode/agent-core
+            @openabcode/tui
+            @openabcode/coding-agent
+            @openabcode/orchestrator
+          )
+
+          for package in "${packages[@]}"; do
+            npm access set status=public "${package}"
+            npm dist-tag add "${package}@${VERSION}" latest
+            npm dist-tag ls "${package}"
+          done
