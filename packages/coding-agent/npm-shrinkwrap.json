@@ -1,17 +1,17 @@
 {
 	"name": "@openabcode/coding-agent",
-	"version": "0.80.6",
+	"version": "1.0.0",
 	"lockfileVersion": 3,
 	"requires": true,
 	"packages": {
 		"": {
 			"name": "@openabcode/coding-agent",
-			"version": "0.80.6",
+			"version": "1.0.0",
 			"license": "MIT",
 			"dependencies": {
-				"@openabcode/agent-core": "^0.80.6",
-				"@openabcode/ai": "^0.80.6",
-				"@openabcode/tui": "^0.80.6",
+				"@openabcode/agent-core": "^1.0.0",
+				"@openabcode/ai": "^1.0.0",
+				"@openabcode/tui": "^1.0.0",
 				"@silvia-odwyer/photon-node": "0.3.4",
 				"chalk": "5.6.2",
 				"cross-spawn": "7.0.6",
@@ -724,11 +724,11 @@
 			]
 		},
 		"node_modules/@openabcode/agent-core": {
-			"version": "0.80.6",
-			"resolved": "https://registry.npmjs.org/@openabcode/agent-core/-/agent-core-0.80.6.tgz",
+			"version": "1.0.0",
+			"resolved": "https://registry.npmjs.org/@openabcode/agent-core/-/agent-core-1.0.0.tgz",
 			"license": "MIT",
 			"dependencies": {
-				"@openabcode/ai": "^0.80.6",
+				"@openabcode/ai": "^1.0.0",
 				"ignore": "7.0.5",
 				"typebox": "1.1.38",
 				"yaml": "2.9.0"
@@ -738,8 +738,8 @@
 			}
 		},
 		"node_modules/@openabcode/ai": {
-			"version": "0.80.6",
-			"resolved": "https://registry.npmjs.org/@openabcode/ai/-/ai-0.80.6.tgz",
+			"version": "1.0.0",
+			"resolved": "https://registry.npmjs.org/@openabcode/ai/-/ai-1.0.0.tgz",
 			"license": "MIT",
 			"dependencies": {
 				"@anthropic-ai/sdk": "0.91.1",
@@ -762,8 +762,8 @@
 			}
 		},
 		"node_modules/@openabcode/tui": {
-			"version": "0.80.6",
-			"resolved": "https://registry.npmjs.org/@openabcode/tui/-/tui-0.80.6.tgz",
+			"version": "1.0.0",
+			"resolved": "https://registry.npmjs.org/@openabcode/tui/-/tui-1.0.0.tgz",
 			"license": "MIT",
 			"dependencies": {
 				"get-east-asian-width": "1.6.0",
