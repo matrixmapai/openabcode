@@ -9,6 +9,7 @@ const packages = [
 	{ directory: "packages/agent", name: "@openabcode/agent-core" },
 	{ directory: "packages/tui", name: "@openabcode/tui" },
 	{ directory: "packages/coding-agent", name: "@openabcode/coding-agent" },
+	{ directory: "packages/orchestrator", name: "@openabcode/orchestrator" },
 ];
 
 const dryRun = process.argv.includes("--dry-run");
