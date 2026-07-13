@@ -4,8 +4,6 @@ This page collects day-to-day usage details that do not fit on the quickstart pa
 
 ## Interactive Mode
 
-<p align="center"><img src="images/interactive-mode.png" alt="Interactive Mode" width="600"></p>
-
 The interface has four main areas:
 
 - **Startup header** - shortcuts, loaded context files, prompt templates, skills, and extensions
@@ -58,6 +56,92 @@ Type `/` in the editor to open command completion. Extensions can register custo
 | `/hotkeys` | Show all keyboard shortcuts |
 | `/changelog` | Display version history |
 | `/quit` | Quit openabcode |
+
+## Route Mode
+
+Route mode classifies every non-empty prompt before the main agent turn and selects one configured execution model from the OpenAI, Google, or Anthropic family. The selected model then runs the normal agent and tool loop.
+
+### Configure Route
+
+Route requires one classifier model and one authenticated execution model for each family:
+
+1. Run `/login` and configure the providers you want to use.
+2. Run `/route-model` and select the authenticated model that will classify tasks. This does not change the active or default execution model.
+3. Run `/model` and select an OpenAI-family model, a Google-family model, and an Anthropic-family model. Each selection is saved to its corresponding Route family while preserving Route mode.
+4. Run `/route` and select `on`.
+
+`/route` does not accept `on`, `off`, `auto`, or `manual` arguments; it opens the on/off selector. If the classifier or any execution family is missing, unavailable, or unauthenticated, OpenABCode keeps Route off and reports the missing configuration.
+
+Selecting `off` opens the fixed-model flow. The selected fixed model becomes the active default and automatic routing is disabled.
+
+### Per-Prompt Routing
+
+For each prompt, OpenABCode:
+
+1. Sends the task text and up to 30 project-root filenames to the configured classifier model.
+2. Asks the classifier to return exactly one family: `openai`, `google`, or `anthropic`.
+3. Selects the configured model for that family.
+4. Switches the active agent model when needed, then runs the prompt through the normal agent and tool loop.
+
+The classifier request has a 60-second timeout. A timeout, provider error, aborted response, or invalid classifier output falls back to the OpenAI family.
+
+The classifier can use a direct provider, OpenRouter, or the OpenABCode hosted gateway. For example, `openabcode/gemini-3.1-flash-lite` is registered locally under the `openabcode` provider and routed by the gateway to the Google upstream provider.
+
+### Footer and Audit Records
+
+When Route is on, the footer shows the three configured execution models:
+
+```text
+Route · gpt-5.5 · gemini-3.5-flash · claude-haiku-4.5
+```
+
+These are the available Route choices, not the result of the latest classification. Every completed classification is persisted in the session JSONL as an `openabcode-routing` custom entry, including the classifier model, selected family, execution model, previous model, and timestamp.
+
+To inspect recent routing decisions:
+
+```bash
+find ~/.openabcode/agent/sessions \
+	-type f -name '*.jsonl' -print0 |
+xargs -0 grep '"customType":"openabcode-routing"' |
+tail -n 10
+```
+
+Example decision:
+
+```json
+{
+	"provider": "google",
+	"classifierModel": {
+		"provider": "openabcode",
+		"id": "gemini-3.1-flash-lite"
+	},
+	"model": {
+		"provider": "openabcode",
+		"id": "gemini-3.5-flash"
+	},
+	"previousModel": {
+		"provider": "openabcode",
+		"id": "claude-haiku-4.5"
+	}
+}
+```
+
+Route configuration is stored in `~/.openabcode/agent/settings.json`:
+
+```json
+{
+	"router": {
+		"enabled": true,
+		"setupCompleted": true,
+		"classifierModel": "openabcode/gemini-3.1-flash-lite",
+		"models": {
+			"openai": "openabcode/gpt-5.5",
+			"google": "openabcode/gemini-3.5-flash",
+			"anthropic": "openabcode/claude-haiku-4.5"
+		}
+	}
+}
+```
 
 ## Message Queue
 
@@ -296,7 +380,7 @@ openabcode --exclude-tools ask_question
 | `OPENABCODE_CODING_AGENT_SESSION_DIR` | Override session storage directory; overridden by `--session-dir` |
 | `OPENABCODE_PACKAGE_DIR` | Override package directory, useful for Nix/Guix store paths |
 | `OPENABCODE_OFFLINE` | Disable startup network operations, including update checks, package update checks, and install/update telemetry |
-| `OPENABCODE_SKIP_VERSION_CHECK` | Skip the Pi version update check at startup. This prevents the `openabcode.com` latest-version request |
+| `OPENABCODE_SKIP_VERSION_CHECK` | Skip the OpenABCode version update check at startup. This prevents the `openabcode.com` latest-version request |
 | `OPENABCODE_TELEMETRY` | Override install/update telemetry and provider attribution headers: `1`/`true`/`yes` or `0`/`false`/`no`. This does not disable update checks |
 | `OPENABCODE_CACHE_RETENTION` | Set to `long` for extended prompt cache where supported |
 | `VISUAL`, `EDITOR` | Fallback external editor for Ctrl+G when `externalEditor` is unset; defaults to Notepad on Windows and `nano` elsewhere |
