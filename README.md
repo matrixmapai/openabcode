@@ -1,6 +1,9 @@
 <p align="center">
-  <strong>OpenABCode</strong>
+    <a href="https://openabcode.com">
+    <img alt="openabcode logo" src="./logo.svg" width="128">
+  </a>
 </p>
+
 <p align="center">
   <a href="https://www.npmjs.com/package/@openabcode/coding-agent"><img alt="npm" src="https://img.shields.io/npm/v/@openabcode/coding-agent?style=flat-square" /></a>
 </p>
