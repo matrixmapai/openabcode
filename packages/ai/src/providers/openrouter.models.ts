@@ -1338,8 +1338,8 @@ export const OPENROUTER_MODELS = {
 		reasoning: false,
 		input: ["text", "image"],
 		cost: {
-			input: 0.15,
-			output: 0.6,
+			input: 0.2,
+			output: 0.8,
 			cacheRead: 0,
 			cacheWrite: 0,
 		},
@@ -3463,7 +3463,7 @@ export const OPENROUTER_MODELS = {
 		input: ["text"],
 		cost: {
 			input: 0.09,
-			output: 0.1,
+			output: 0.55,
 			cacheRead: 0,
 			cacheWrite: 0,
 		},
@@ -4543,12 +4543,12 @@ export const OPENROUTER_MODELS = {
 		input: ["text"],
 		cost: {
 			input: 0.43,
-			output: 1.74,
+			output: 1.75,
 			cacheRead: 0.08,
 			cacheWrite: 0,
 		},
-		contextWindow: 202752,
-		maxTokens: 131072,
+		contextWindow: 198000,
+		maxTokens: 16384,
 	} satisfies Model<"openai-completions">,
 	"z-ai/glm-4.6v": {
 		id: "z-ai/glm-4.6v",
@@ -4669,13 +4669,13 @@ export const OPENROUTER_MODELS = {
 		thinkingLevelMap: {"xhigh":"xhigh"},
 		input: ["text"],
 		cost: {
-			input: 0.42,
-			output: 1.32,
-			cacheRead: 0.078,
+			input: 0.85,
+			output: 2.5,
+			cacheRead: 0.1,
 			cacheWrite: 0,
 		},
 		contextWindow: 1048576,
-		maxTokens: 131072,
+		maxTokens: 1048576,
 	} satisfies Model<"openai-completions">,
 	"z-ai/glm-5v-turbo": {
 		id: "z-ai/glm-5v-turbo",
