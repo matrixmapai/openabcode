@@ -219,7 +219,7 @@ Use `/export [file]` to write a session to HTML.
 
 Use `/share` to upload a private GitHub gist with a shareable HTML link.
 
-If you use openabcode for open source work and want to publish sessions for model, prompt, tool, and evaluation research, see [`badlogic/pi-share-hf`](https://github.com/badlogic/pi-share-hf). It publishes sessions to Hugging Face datasets.
+If you use openabcode for open source work and want to publish sessions for model, prompt, tool, and evaluation research, you can build a small exporter around the HTML and JSONL session formats. Community exporters commonly publish sessions to Hugging Face datasets or other artifact stores.
 
 ## CLI Reference
 
@@ -391,4 +391,4 @@ OpenABCode keeps the core small and pushes workflow-specific behavior into exten
 
 It intentionally does not include built-in MCP, sub-agents, permission popups, plan mode, to-dos, or background bash. You can build or install those workflows as extensions or packages, or use external tools such as containers and tmux.
 
-For the original rationale, read the [upstream design article](https://mariozechner.at/posts/2025-11-30-pi-coding-agent/).
+The minimal terminal coding harness design keeps the core small and leaves workflow-specific behavior to extensions, skills, prompt templates, and packages.

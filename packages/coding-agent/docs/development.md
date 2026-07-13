@@ -6,7 +6,7 @@ See [AGENTS.md](https://github.com/matrixmapai/openabcode/blob/main/AGENTS.md) f
 
 ```bash
 git clone https://github.com/matrixmapai/openabcode
-cd pi-mono
+cd openabcode
 npm install
 npm run build
 ```
@@ -14,7 +14,7 @@ npm run build
 Run from source:
 
 ```bash
-/path/to/pi-mono/pi-test.sh
+/path/to/openabcode/openabcode-test.sh
 ```
 
 The script can be run from any directory. OpenABCode keeps the caller's current working directory.

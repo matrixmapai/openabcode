@@ -541,7 +541,7 @@ When a request exceeds the model's context window, openabcode can recover automa
 Detection runs on the finalized assistant message:
 
 - `stopReason === "error"`
-- `errorMessage` matches one of pi's known overflow patterns (see [`packages/ai/src/utils/overflow.ts`](https://github.com/matrixmapai/openabcode/blob/main/packages/ai/src/utils/overflow.ts))
+- `errorMessage` matches one of openabcode's known overflow patterns (see [`packages/ai/src/utils/overflow.ts`](https://github.com/matrixmapai/openabcode/blob/main/packages/ai/src/utils/overflow.ts))
 
 If your provider returns overflow errors with a message openabcode does not recognize, normalize the error from the same extension that registers the provider. Use a `message_end` handler to rewrite the assistant message so its `errorMessage` starts with a phrase openabcode recognizes. The generic fallback `context_length_exceeded` is the safest choice.
 

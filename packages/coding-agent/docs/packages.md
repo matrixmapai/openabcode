@@ -133,7 +133,7 @@ Paths are relative to the package root. Arrays support glob patterns and `!exclu
 
 ### Gallery Metadata
 
-The [package gallery](https://openabcode.com/packages) displays packages tagged with `pi-package`. Add `video` or `image` fields to show a preview:
+The [package gallery](https://openabcode.com/packages) displays packages tagged with `openabcode-package`. Add `video` or `image` fields to show a preview:
 
 ```json
 {

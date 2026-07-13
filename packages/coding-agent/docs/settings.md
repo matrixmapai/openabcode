@@ -76,7 +76,7 @@ For VS Code, include `--wait` so openabcode resumes after the editor exits:
 
 ### Telemetry and update checks
 
-`enableInstallTelemetry` only controls the anonymous install/update ping to `https://openabcode.com/api/report-install`. Opting out of telemetry does not disable update checks; Pi can still fetch `https://openabcode.com/api/latest-version` to look for the latest version.
+`enableInstallTelemetry` only controls the anonymous install/update ping to `https://openabcode.com/api/report-install`. Opting out of telemetry does not disable update checks; OpenABCode can still fetch `https://openabcode.com/api/latest-version` to look for the latest version.
 
 Set `OPENABCODE_SKIP_VERSION_CHECK=1` to disable the OpenABCode version update check. Use `--offline` or `OPENABCODE_OFFLINE=1` to disable all startup network operations described here, including update checks, package update checks, and install/update telemetry.
 
