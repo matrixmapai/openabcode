@@ -237,6 +237,8 @@ jobs:
           npm --version
 
       - name: Publish npm packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: node scripts/publish.mjs
 
   publish-github-release:
