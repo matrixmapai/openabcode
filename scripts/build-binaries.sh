@@ -137,6 +137,10 @@ for platform in "${PLATFORMS[@]}"; do
         bun build --compile --target=bun-$platform ./dist/bun/cli.js ./src/utils/image-resize-worker.ts --outfile "$OUTPUT_DIR/$platform/openabcode.exe"
     else
         bun build --compile --target=bun-$platform ./dist/bun/cli.js ./src/utils/image-resize-worker.ts --outfile "$OUTPUT_DIR/$platform/openabcode"
+        if [[ "$platform" == darwin-* ]] && command -v codesign >/dev/null 2>&1; then
+            codesign --force --sign - "$OUTPUT_DIR/$platform/openabcode"
+            codesign --verify --verbose=2 "$OUTPUT_DIR/$platform/openabcode"
+        fi
     fi
 done
 

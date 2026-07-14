@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Fixed macOS standalone release binaries being killed at startup by building release assets on macOS with Bun 1.3.14 and applying a verified ad-hoc code signature.
+
 ## [1.0.1] - 2026-07-14
 
 ### Changed
