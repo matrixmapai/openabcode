@@ -63,7 +63,8 @@ jobs:
             end
 
             def install
-              bin.install "openabcode"
+              libexec.install "openabcode"
+              bin.install_symlink libexec/"openabcode/openabcode" => "openabcode"
             end
 
             test do
