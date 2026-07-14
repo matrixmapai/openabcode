@@ -27,10 +27,23 @@ To learn more about OpenABCode:
 
 ## Quick Start
 
-Requires Node.js 22.19 or newer.
+Install with the hosted installer:
 
 ```bash
-npm install -g --ignore-scripts @openabcode/coding-agent
+curl -fsSL https://openabcode.com/install.sh | sh
+```
+
+Or use a package manager:
+
+```bash
+npm install -g @openabcode/coding-agent --ignore-scripts
+bun install -g @openabcode/coding-agent
+brew install matrixmapai/tap/openabcode
+```
+
+Then start OpenABCode:
+
+```bash
 openabcode
 ```
 
