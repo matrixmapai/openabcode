@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Changed the package license from MIT to AGPL-3.0-or-later. Portions inherited from Pi remain available under the MIT License as documented in `NOTICE`.
+- Updated the built-in hosted gateway defaults and Route examples to use the current OpenABCode API endpoint and model names.
+- Expanded installation and removal guidance for the hosted installer, npm, Bun, Homebrew, Docker, Gondolin, and OpenShell.
+
+### Fixed
+
+- Fixed the interactive startup onboarding message to use OpenABCode branding instead of Pi.
+- Fixed generated Homebrew formulae to preserve the package metadata and runtime assets required by standalone binaries.
+
 ## [1.0.0] - 2026-07-13
 
 ### Added
