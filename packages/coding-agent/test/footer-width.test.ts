@@ -153,9 +153,9 @@ describe("FooterComponent width handling", () => {
 			sessionName: "",
 			routeMode: "auto",
 			routerModels: {
-				openai: "openabcode/gpt-4o",
+				openai: "openabcode/gpt-5.5",
 				google: "openabcode/gemini-3.1-flash-lite",
-				anthropic: "openabcode/claude-haiku-4.5",
+				anthropic: "openabcode/claude-opus-4.8",
 			},
 		});
 		const footer = new FooterComponent(session, createFooterData(1));
@@ -164,7 +164,7 @@ describe("FooterComponent width handling", () => {
 		expect(lines[1]).not.toContain("test-model");
 		expect(lines[1]).not.toContain("[test]");
 		const routeLine = lines[2];
-		expect(routeLine).toBe("Route · gpt-4o · gemini-3.1-flash-lite · claude-haiku-4.5");
+		expect(routeLine).toBe("Route · gpt-5.5 · gemini-3.1-flash-lite · claude-opus-4.8");
 	});
 
 	it("keeps the Route summary within narrow terminal widths", () => {

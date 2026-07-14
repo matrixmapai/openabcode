@@ -59,7 +59,7 @@ describe("OpenABCode router", () => {
 		}
 	});
 
-	it("OpenABCode hosted model list mirrors the LiteLLM gateway catalog", () => {
+	it("OpenABCode gateway model list mirrors the LiteLLM gateway catalog", () => {
 		expect(Object.keys(OPENABCODE_HOSTED_UPSTREAM)).toHaveLength(31);
 		expect(OPENABCODE_HOSTED_UPSTREAM["claude-opus-4-8"]).toBe("anthropic");
 		expect(OPENABCODE_HOSTED_UPSTREAM["gemini-3.1-pro-preview"]).toBe("google");

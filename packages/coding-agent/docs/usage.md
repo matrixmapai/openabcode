@@ -85,14 +85,14 @@ For each prompt, OpenABCode:
 
 The classifier request has a 60-second timeout. A timeout, provider error, aborted response, or invalid classifier output falls back to the OpenAI family.
 
-The classifier can use a direct provider, OpenRouter, or the OpenABCode hosted gateway. For example, `openabcode/gemini-3.1-flash-lite` is registered locally under the `openabcode` provider and routed by the gateway to the Google upstream provider.
+The classifier can use a direct provider, OpenRouter, or the OpenABCode gateway. For example, `openabcode/gemini-3.1-flash-lite` is registered locally under the `openabcode` provider and routed by the gateway to the Google upstream provider.
 
 ### Footer and Audit Records
 
 When Route is on, the footer shows the three configured execution models:
 
 ```text
-Route · gpt-5.5 · gemini-3.5-flash · claude-haiku-4.5
+Route · gpt-5.5 · gemini-3.5-flash · claude-haiku-4.8
 ```
 
 These are the available Route choices, not the result of the latest classification. Every completed classification is persisted in the session JSONL as an `openabcode-routing` custom entry, including the classifier model, selected family, execution model, previous model, and timestamp.
@@ -121,7 +121,7 @@ Example decision:
 	},
 	"previousModel": {
 		"provider": "openabcode",
-		"id": "claude-haiku-4.5"
+		"id": "claude-haiku-4.8"
 	}
 }
 ```
@@ -137,7 +137,7 @@ Route configuration is stored in `~/.openabcode/agent/settings.json`:
 		"models": {
 			"openai": "openabcode/gpt-5.5",
 			"google": "openabcode/gemini-3.5-flash",
-			"anthropic": "openabcode/claude-haiku-4.5"
+			"anthropic": "openabcode/claude-haiku-4.8"
 		}
 	}
 }

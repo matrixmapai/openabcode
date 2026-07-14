@@ -11,7 +11,7 @@
 
 ---
 
-OpenABCode is a Route-first terminal coding agent. Each prompt can be classified before the main turn, routed to your configured ChatGPT, Gemini, or Claude family model, and then executed through the same local tool loop. Use your own provider keys or the OpenABCode hosted gateway for managed model access.
+OpenABCode is a Route-first terminal coding agent. Each prompt can be classified before the main turn, routed to your configured ChatGPT, Gemini, or Claude family model, and then executed through the same local tool loop. Use your own provider keys or the OpenABCode AI gateway for managed model access.
 
 Adapt openabcode to your workflows, not the other way around, without having to fork and modify openabcode internals. Extend it with TypeScript [Extensions](#extensions), [Skills](#skills), [Prompt Templates](#prompt-templates), and [Themes](#themes). Put your extensions, skills, prompt templates, and themes in [OpenABCode Packages](#openabcode-packages) and share them with others via npm or git.
 
@@ -141,7 +141,7 @@ Configure Route in the TUI:
 When Route is on, the footer shows the three configured execution models:
 
 ```text
-Route · gpt-5.5 · gemini-3.5-flash · claude-haiku-4.5
+Route · gpt-5.5 · gemini-3.5-flash · claude-opus-4.8
 ```
 
 These are the available Route choices, not the latest classification result. Every completed classification is persisted in the session JSONL as an `openabcode-routing` entry with the classifier model, selected family, execution model, previous model, and timestamp.

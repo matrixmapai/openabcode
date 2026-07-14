@@ -1,7 +1,7 @@
 /**
- * OpenABCode hosted gateway provider.
+ * OpenABCode gateway provider.
  *
- * Registers the "openabcode" provider backed by the OpenABCode hosted gateway
+ * Registers the "openabcode" provider backed by the OpenABCode gateway
  * (LiteLLM proxy, OpenAI-compatible). Auth is a bearer token issued by the
  * OpenABCode web API, resolved from $OPENABCODE_API_KEY or auth.json
  * (via `/login openabcode`). Each hosted model carries the
