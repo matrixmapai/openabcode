@@ -2,6 +2,31 @@
 
 OpenABCode supports subscription-based providers via OAuth and API key providers via environment variables or auth file. For each provider, openabcode knows all available models. The list is updated with every openabcode release.
 
+<div class="code-tabs" data-code-tabs>
+  <div class="code-tab-list" role="tablist" aria-label="Authentication methods">
+    <button class="code-tab" type="button" role="tab" aria-selected="true" data-code-tab>Subscription login</button>
+    <button class="code-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-code-tab>API key env</button>
+    <button class="code-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-code-tab>auth.json</button>
+  </div>
+  <div class="code-tab-panel" data-code-panel>
+    <pre><code class="language-text">/login</code></pre>
+    <p>Select ChatGPT Plus/Pro, Claude Pro/Max, or GitHub Copilot. OAuth credentials are stored in <code>~/.openabcode/agent/auth.json</code> and refreshed automatically.</p>
+  </div>
+  <div class="code-tab-panel" data-code-panel hidden>
+    <pre><code class="language-bash">export ANTHROPIC_API_KEY=sk-ant-...
+openabcode</code></pre>
+    <p>Environment variables are best when you already manage provider credentials in your shell, CI, or secret manager.</p>
+  </div>
+  <div class="code-tab-panel" data-code-panel hidden>
+    <pre><code class="language-json">{
+  "anthropic": { "type": "api_key", "key": "sk-ant-..." },
+  "openai": { "type": "api_key", "key": "sk-..." },
+  "google": { "type": "api_key", "key": "..." }
+}</code></pre>
+    <p>Use <code>~/.openabcode/agent/auth.json</code> when OpenABCode should store or resolve credentials outside the project shell environment.</p>
+  </div>
+</div>
+
 ## Table of Contents
 
 - [Subscriptions](#subscriptions)

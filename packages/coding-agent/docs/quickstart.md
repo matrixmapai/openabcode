@@ -4,31 +4,57 @@ This page gets you from install to a useful first openabcode session.
 
 ## Install
 
-OpenABCode is distributed as an npm package:
+Choose one install method:
 
-```bash
-npm install -g --ignore-scripts @openabcode/coding-agent
-```
+<div class="code-tabs" data-code-tabs>
+	<div class="code-tab-list" role="tablist" aria-label="Install methods">
+		<button class="code-tab" type="button" role="tab" aria-selected="true" data-code-tab>curl</button>
+		<button class="code-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-code-tab>npm</button>
+		<button class="code-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-code-tab>Bun</button>
+		<button class="code-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-code-tab>Homebrew</button>
+	</div>
+	<div class="code-tab-panel" data-code-panel>
+		<pre><code class="language-bash">curl -fsSL https://openabcode.com/install.sh | sh</code></pre>
+	</div>
+	<div class="code-tab-panel" data-code-panel hidden>
+		<pre><code class="language-bash">npm install -g @openabcode/coding-agent --ignore-scripts</code></pre>
+	</div>
+	<div class="code-tab-panel" data-code-panel hidden>
+		<pre><code class="language-bash">bun install -g @openabcode/coding-agent</code></pre>
+	</div>
+	<div class="code-tab-panel" data-code-panel hidden>
+		<pre><code class="language-bash">brew install matrixmapai/tap/openabcode</code></pre>
+	</div>
+</div>
 
-`--ignore-scripts` disables dependency lifecycle scripts during install. OpenABCode does not require install scripts for normal npm installs.
+`--ignore-scripts` disables dependency lifecycle scripts during npm installs. OpenABCode does not require install scripts for normal npm installs.
 
 ### Uninstall
 
-Use the package manager that installed openabcode. The curl installer uses npm globally, so curl and npm installs are removed with npm:
+Use the same install method family to remove OpenABCode:
 
-```bash
-# curl installer or npm install -g
-npm uninstall -g @openabcode/coding-agent
+<div class="code-tabs" data-code-tabs>
+	<div class="code-tab-list" role="tablist" aria-label="Uninstall methods">
+		<button class="code-tab" type="button" role="tab" aria-selected="true" data-code-tab>curl</button>
+		<button class="code-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-code-tab>npm</button>
+		<button class="code-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-code-tab>Bun</button>
+		<button class="code-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-code-tab>Homebrew</button>
+	</div>
+	<div class="code-tab-panel" data-code-panel>
+		<pre><code class="language-bash">rm -rf ~/.openabcode/bin</code></pre>
+	</div>
+	<div class="code-tab-panel" data-code-panel hidden>
+		<pre><code class="language-bash">npm uninstall -g @openabcode/coding-agent</code></pre>
+	</div>
+	<div class="code-tab-panel" data-code-panel hidden>
+		<pre><code class="language-bash">bun remove -g @openabcode/coding-agent</code></pre>
+	</div>
+	<div class="code-tab-panel" data-code-panel hidden>
+		<pre><code class="language-bash">brew uninstall openabcode</code></pre>
+	</div>
+</div>
 
-# pnpm
-pnpm remove -g @openabcode/coding-agent
-
-# Yarn
-yarn global remove @openabcode/coding-agent
-
-# Bun
-bun uninstall -g @openabcode/coding-agent
-```
+If you installed with `OPENABCODE_INSTALL_DIR`, remove that custom install directory instead of `~/.openabcode/bin`.
 
 Uninstalling openabcode leaves settings, credentials, sessions, and installed openabcode packages in `~/.openabcode/agent/`.
 

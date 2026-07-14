@@ -16,6 +16,46 @@ There are two general options. You can either
 
 Extensions run wherever the `openabcode` process runs. If you run host `openabcode` with a tool-routing extension, other custom extension tools still run on the host unless they also delegate their operations.
 
+<div class="code-tabs" data-code-tabs>
+  <div class="code-tab-list" role="tablist" aria-label="Containerization patterns">
+    <button class="code-tab" type="button" role="tab" aria-selected="true" data-code-tab>Gondolin</button>
+    <button class="code-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-code-tab>Docker</button>
+    <button class="code-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-code-tab>OpenShell</button>
+  </div>
+  <div class="code-tab-panel" data-code-panel>
+    <pre><code class="language-bash">cp -R packages/coding-agent/examples/extensions/gondolin ~/.openabcode/agent/extensions/gondolin
+cd ~/.openabcode/agent/extensions/gondolin
+npm install --ignore-scripts
+
+cd /path/to/project
+openabcode -e ~/.openabcode/agent/extensions/gondolin</code></pre>
+  </div>
+  <div class="code-tab-panel" data-code-panel hidden>
+    <pre><code class="language-dockerfile">FROM node:24-bookworm-slim
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends bash ca-certificates git ripgrep \
+  && rm -rf /var/lib/apt/lists/*
+RUN npm install -g --ignore-scripts @openabcode/coding-agent
+
+WORKDIR /workspace
+ENTRYPOINT ["openabcode"]</code></pre>
+    <pre><code class="language-bash">docker build -t openabcode-sandbox -f Dockerfile.openabcode .
+
+docker run --rm -it \
+  -e ANTHROPIC_API_KEY \
+  -v "$PWD:/workspace" \
+  -v openabcode-agent-home:/root/.openabcode/agent \
+  openabcode-sandbox</code></pre>
+  </div>
+  <div class="code-tab-panel" data-code-panel hidden>
+    <pre><code class="language-bash">openshell gateway add &lt;gateway-url&gt; --name &lt;name&gt;
+openshell gateway select &lt;name&gt;
+
+openshell sandbox create --name openabcode-sandbox --from openabcode -- openabcode</code></pre>
+  </div>
+</div>
+
 ## Gondolin
 
 [Gondolin](https://github.com/matrixmapai/gondolin) is a local Linux micro-VM.

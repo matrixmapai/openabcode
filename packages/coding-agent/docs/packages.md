@@ -52,6 +52,34 @@ openabcode -e git:github.com/user/repo
 
 OpenABCode accepts three source types in settings and `openabcode install`.
 
+<div class="code-tabs" data-code-tabs>
+  <div class="code-tab-list" role="tablist" aria-label="Package source types">
+    <button class="code-tab" type="button" role="tab" aria-selected="true" data-code-tab>npm</button>
+    <button class="code-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-code-tab>git</button>
+    <button class="code-tab" type="button" role="tab" aria-selected="false" tabindex="-1" data-code-tab>Local path</button>
+  </div>
+  <div class="code-tab-panel" data-code-panel>
+    <pre><code>npm:@scope/pkg@1.2.3
+npm:pkg</code></pre>
+    <pre><code class="language-bash">openabcode install npm:@scope/pkg@1.2.3
+openabcode install npm:pkg</code></pre>
+  </div>
+  <div class="code-tab-panel" data-code-panel hidden>
+    <pre><code>git:github.com/user/repo@v1
+git:git@github.com:user/repo@v1
+https://github.com/user/repo@v1
+ssh://git@github.com/user/repo@v1</code></pre>
+    <pre><code class="language-bash">openabcode install git:github.com/user/repo@v1
+openabcode install ssh://git@github.com/user/repo@v1</code></pre>
+  </div>
+  <div class="code-tab-panel" data-code-panel hidden>
+    <pre><code>/absolute/path/to/package
+./relative/path/to/package</code></pre>
+    <pre><code class="language-bash">openabcode install /absolute/path/to/package
+openabcode install ./relative/path/to/package</code></pre>
+  </div>
+</div>
+
 ### npm
 
 ```
