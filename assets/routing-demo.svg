@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" class="routing-diagram" viewBox="0 0 900 360" role="img" aria-labelledby="routing-title routing-description">
+  <title id="routing-title">OpenABCode routing rules</title>
+  <desc id="routing-description">A coding task enters the task router, which routes Google ecosystem work to Gemini, engineering systems work to Claude, and testing and automation work to ChatGPT.</desc>
+  <style>
+    .routing-diagram path {
+      fill: none;
+      stroke: #a9583e;
+      stroke-width: 2;
+      stroke-linecap: round;
+    }
+    .routing-diagram marker path {
+      fill: #a9583e;
+      stroke: none;
+    }
+    .routing-node rect {
+      fill: #faf9f5;
+      stroke: #d7cbbb;
+      stroke-width: 2;
+      rx: 6px;
+    }
+    .routing-node text {
+      fill: #141413;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 18px;
+      font-weight: 600;
+      text-anchor: middle;
+      dominant-baseline: middle;
+    }
+    .routing-target-gemini rect { fill: #eef2fb; stroke: #3b6ea5; }
+    .routing-target-gemini text { fill: #2f5c8a; }
+    .routing-target-claude rect { fill: #f7efe9; stroke: #a9583e; }
+    .routing-target-claude text { fill: #8a4630; }
+    .routing-target-chatgpt rect { fill: #e9f5f0; stroke: #1a7f64; }
+    .routing-target-chatgpt text { fill: #136350; }
+    .routing-source {
+      animation: routing-enter 420ms ease-out both;
+    }
+    .routing-classifier {
+      animation: routing-enter 420ms 180ms ease-out both, routing-router-pulse 9s 1.2s ease-in-out infinite;
+    }
+    .routing-entry-path {
+      stroke-dasharray: 8 7;
+      animation: routing-path-enter 650ms 220ms ease-out both, routing-line-flow 1s 900ms linear infinite;
+    }
+    .routing-target {
+      opacity: 0.52;
+      animation: routing-enter 380ms ease-out both, routing-highlight 3.51s ease-in-out infinite;
+    }
+    .routing-route-path {
+      opacity: 0.34;
+      stroke-dasharray: 8 8;
+      animation: routing-path-enter 520ms ease-out both, routing-route-flow 3.51s linear infinite;
+    }
+    .routing-moving-label {
+      fill: #141413;
+      stroke: none;
+      font-family: ui-sans-serif, system-ui, sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      animation: routing-moving-label 3.51s linear infinite;
+      pointer-events: none;
+    }
+    .routing-route-1 { animation-delay: 420ms, 0.9s; }
+    .routing-route-2 { animation-delay: 470ms, 2.07s; }
+    .routing-route-3 { animation-delay: 520ms, 3.24s; }
+    .routing-moving-label.routing-route-1 { animation-delay: 0.9s; }
+    .routing-moving-label.routing-route-2 { animation-delay: 2.07s; }
+    .routing-moving-label.routing-route-3 { animation-delay: 3.24s; }
+    @keyframes routing-enter {
+      from { opacity: 0; }
+    }
+    @keyframes routing-path-enter {
+      from { opacity: 0; stroke-dashoffset: 32; }
+    }
+    @keyframes routing-line-flow {
+      to { stroke-dashoffset: -15; }
+    }
+    @keyframes routing-router-pulse {
+      0%, 12%, 100% { opacity: 1; }
+      5% { opacity: 0.72; }
+    }
+    @keyframes routing-highlight {
+      0%, 34%, 100% { opacity: 0.52; }
+      2%, 32% { opacity: 1; }
+    }
+    @keyframes routing-route-flow {
+      0%, 34%, 100% { opacity: 0.34; stroke-dashoffset: 0; }
+      2%, 32% { opacity: 1; stroke-dashoffset: -32; }
+    }
+    @keyframes routing-moving-label {
+      0%, 33% { opacity: 1; }
+      34%, 100% { opacity: 0; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .routing-node,
+      .routing-diagram > path {
+        animation: none !important;
+        opacity: 1;
+        stroke-dasharray: none;
+      }
+      .routing-moving-label { display: none; }
+    }
+  </style>
+  <defs>
+    <marker id="routing-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z"/>
+    </marker>
+  </defs>
+  <path class="routing-entry-path" d="M450 84 C450 98 450 111 450 126" marker-end="url(#routing-arrow)"/>
+  <path id="route-gemini" class="routing-route-path routing-route-1" d="M450 190 C450 226 150 226 150 280" marker-end="url(#routing-arrow)"/>
+  <path id="route-claude" class="routing-route-path routing-route-2" d="M450 190 C450 220 450 250 450 280" marker-end="url(#routing-arrow)"/>
+  <path id="route-chatgpt" class="routing-route-path routing-route-3" d="M450 190 C450 226 750 226 750 280" marker-end="url(#routing-arrow)"/>
+  <g class="routing-node routing-source">
+    <rect x="350" y="20" width="200" height="64"/>
+    <text x="450" y="52">Coding Task</text>
+  </g>
+  <g class="routing-node routing-classifier">
+    <rect x="350" y="126" width="200" height="64"/>
+    <text x="450" y="158">Task Router</text>
+  </g>
+  <g class="routing-node routing-target routing-route-1 routing-target-gemini">
+    <rect x="50" y="280" width="200" height="64"/>
+    <text x="150" y="312">Gemini</text>
+  </g>
+  <g class="routing-node routing-target routing-route-2 routing-target-claude">
+    <rect x="350" y="280" width="200" height="64"/>
+    <text x="450" y="312">Claude</text>
+  </g>
+  <g class="routing-node routing-target routing-route-3 routing-target-chatgpt">
+    <rect x="650" y="280" width="200" height="64"/>
+    <text x="750" y="312">ChatGPT</text>
+  </g>
+  <text class="routing-moving-label routing-route-1" aria-hidden="true" text-anchor="middle" dy="-9">
+    Google ecosystem
+    <animateMotion dur="3.51s" begin="0.9s" repeatCount="indefinite" keyPoints="0;1;1" keyTimes="0;0.333333;1">
+      <mpath href="#route-gemini"/>
+    </animateMotion>
+  </text>
+  <text class="routing-moving-label routing-route-2" aria-hidden="true" text-anchor="middle" dy="-9">
+    Engineering systems
+    <animateMotion dur="3.51s" begin="2.07s" repeatCount="indefinite" keyPoints="0;1;1" keyTimes="0;0.333333;1">
+      <mpath href="#route-claude"/>
+    </animateMotion>
+  </text>
+  <text class="routing-moving-label routing-route-3" aria-hidden="true" text-anchor="middle" dy="-9">
+    Testing and automation
+    <animateMotion dur="3.51s" begin="3.24s" repeatCount="indefinite" keyPoints="0;1;1" keyTimes="0;0.333333;1">
+      <mpath href="#route-chatgpt"/>
+    </animateMotion>
+  </text>
+</svg>

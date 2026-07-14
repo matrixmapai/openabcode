@@ -485,4 +485,4 @@ These low-level streams are observational. They preserve event order, but they d
 
 ## License
 
-MIT
+AGPL-3.0-or-later

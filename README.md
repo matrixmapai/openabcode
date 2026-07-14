@@ -14,6 +14,12 @@ OpenABCode is a terminal coding agent with automatic task routing. Route classif
 
 Use your own provider credentials or sign in to the OpenABCode hosted gateway. The CLI also supports fixed-model operation, custom providers, extensions, skills, prompt templates, and themes.
 
+<p align="center">
+  <a href="https://openabcode.com">
+    <img src="./assets/routing-demo.svg" alt="OpenABCode routes coding tasks across Gemini, Claude, and ChatGPT" width="900">
+  </a>
+</p>
+
 To learn more about OpenABCode:
 
 * [Visit openabcode.com](https://openabcode.com), the project website
@@ -96,6 +102,6 @@ We treat npm dependency changes as reviewed code changes.
 
 ## License
 
-MIT
+AGPL-3.0-or-later
 
-Portions derived from [Pi](https://github.com/earendil-works/pi) (MIT). See [NOTICE](NOTICE) for attribution.
+Portions derived from [Pi](https://github.com/earendil-works/pi) remain licensed under the MIT License. See [NOTICE](NOTICE) for attribution.

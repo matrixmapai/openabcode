@@ -1563,4 +1563,4 @@ Add an entry to `packages/ai/CHANGELOG.md` under `## [Unreleased]`:
 
 ## License
 
-MIT
+AGPL-3.0-or-later

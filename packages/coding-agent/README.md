@@ -685,7 +685,7 @@ See [CONTRIBUTING.md](../../CONTRIBUTING.md) for guidelines and [docs/developmen
 
 ## License
 
-MIT
+AGPL-3.0-or-later
 
 ## See Also
 
