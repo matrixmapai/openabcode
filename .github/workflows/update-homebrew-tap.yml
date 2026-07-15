@@ -24,67 +24,7 @@ jobs:
           RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag || github.event.workflow_run.head_branch }}
         run: |
           set -euo pipefail
-
-          VERSION="${RELEASE_TAG#v}"
-          TAP_REPO="matrixmapai/homebrew-tap"
-          FORMULA_PATH="Formula/openabcode.rb"
-          RELEASE_BASE="https://github.com/matrixmapai/openabcode/releases/download/${RELEASE_TAG}"
-
-          # Download assets and compute sha256
-          declare -A SHAS
-          for asset in openabcode-darwin-arm64.tar.gz openabcode-darwin-x64.tar.gz openabcode-linux-arm64.tar.gz openabcode-linux-x64.tar.gz; do
-            sha=$(curl -fsSL "${RELEASE_BASE}/${asset}" | sha256sum | awk '{print $1}')
-            SHAS["${asset}"]="${sha}"
-          done
-
-          # Generate formula
-          mkdir -p "$(dirname "${FORMULA_PATH}")"
-          cat > "${FORMULA_PATH}" << RUBY
-          class Openabcode < Formula
-            desc "AI coding agent with task routing and hosted gateway"
-            homepage "https://openabcode.com"
-            license "AGPL-3.0-or-later"
-            version "${VERSION}"
-
-            on_macos do
-              if Hardware::CPU.arm?
-                url "${RELEASE_BASE}/openabcode-darwin-arm64.tar.gz"
-                sha256 "${SHAS[openabcode-darwin-arm64.tar.gz]}"
-              else
-                url "${RELEASE_BASE}/openabcode-darwin-x64.tar.gz"
-                sha256 "${SHAS[openabcode-darwin-x64.tar.gz]}"
-              end
-            end
-
-            on_linux do
-              if Hardware::CPU.arm?
-                url "${RELEASE_BASE}/openabcode-linux-arm64.tar.gz"
-                sha256 "${SHAS[openabcode-linux-arm64.tar.gz]}"
-              else
-                url "${RELEASE_BASE}/openabcode-linux-x64.tar.gz"
-                sha256 "${SHAS[openabcode-linux-x64.tar.gz]}"
-              end
-            end
-
-            def install
-              libexec.install Dir["*"]
-              bin.install_symlink libexec/"openabcode" => "openabcode"
-            end
-
-            test do
-              assert_match version.to_s, shell_output("#{bin}/openabcode --version")
-            end
-          end
-          RUBY
-
-          # Remove leading whitespace from heredoc
-          sed -i 's/^          //' "${FORMULA_PATH}"
-
-          # Update the tap with the fine-grained PAT as a Bearer token.
-          formula_sha=$(gh api "repos/${TAP_REPO}/contents/${FORMULA_PATH}" --jq '.sha')
-          formula_content=$(base64 -w 0 "${FORMULA_PATH}")
-          gh api --method PUT "repos/${TAP_REPO}/contents/${FORMULA_PATH}" \
-            -f message="openabcode ${VERSION}" \
-            -f content="${formula_content}" \
-            -f sha="${formula_sha}" \
-            -f branch=main
+          gh workflow run update-openabcode.yml \
+            --repo matrixmapai/homebrew-tap \
+            --ref main \
+            -f release_tag="${RELEASE_TAG}"
