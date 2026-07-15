@@ -13,6 +13,7 @@
  * Modes use this class and add their own I/O layer on top.
  */
 
+import { randomUUID } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, dirname } from "node:path";
 import type {
@@ -84,6 +85,7 @@ import {
 import { emitSessionShutdownEvent } from "./extensions/runner.ts";
 import type { BashExecutionMessage, CustomMessage } from "./messages.ts";
 import type { ModelRegistry } from "./model-registry.ts";
+import { OPENABCODE_PROVIDER, OPENABCODE_ROUTING_DECISION_HEADER } from "./openabcode-provider.ts";
 import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.ts";
 import type { ResourceExtensionPaths, ResourceLoader } from "./resource-loader.ts";
 import {
@@ -219,6 +221,8 @@ export interface PromptOptions {
 	source?: InputSource;
 	/** Internal hook used by RPC mode to observe prompt preflight acceptance or rejection. */
 	preflightResult?: (success: boolean) => void;
+	/** Internal hook used by interactive mode to render accepted input before routing completes. */
+	onPromptSubmitted?: (message: AgentMessage) => void;
 }
 
 /** Result from cycleModel() */
@@ -1156,6 +1160,16 @@ export class AgentSession {
 
 			// Flush any pending bash messages before the new prompt
 			this._flushPendingBashMessages();
+			const userContent: (TextContent | ImageContent)[] = [{ type: "text", text: expandedText }];
+			if (currentImages) {
+				userContent.push(...currentImages);
+			}
+			const userMessage: AgentMessage = {
+				role: "user",
+				content: userContent,
+				timestamp: Date.now(),
+			};
+			options?.onPromptSubmitted?.(userMessage);
 
 			// Route the task to the best provider/model (OpenABCode task router)
 			await this._maybeRouteModel(expandedText);
@@ -1185,18 +1199,7 @@ export class AgentSession {
 			}
 
 			// Build messages array (custom message if any, then user message)
-			messages = [];
-
-			// Add user message
-			const userContent: (TextContent | ImageContent)[] = [{ type: "text", text: expandedText }];
-			if (currentImages) {
-				userContent.push(...currentImages);
-			}
-			messages.push({
-				role: "user",
-				content: userContent,
-				timestamp: Date.now(),
-			});
+			messages = [userMessage];
 
 			// Inject any pending "nextTurn" messages as context alongside the user message
 			for (const msg of this._pendingNextTurnMessages) {
@@ -1569,6 +1572,7 @@ export class AgentSession {
 	 * The switch is per-turn: it does not persist a new default model.
 	 */
 	private async _maybeRouteModel(text: string): Promise<void> {
+		this.agent.requestHeaders = undefined;
 		if (this._routeMode !== "auto") return;
 		if (!text.trim()) return;
 
@@ -1596,12 +1600,16 @@ export class AgentSession {
 
 		const auth = await this._modelRegistry.getApiKeyAndHeaders(classifierModel);
 		if (!auth.ok) return;
+		const decisionID = `rtd_${randomUUID()}`;
 		const choice = await classifyProvider(
 			classifierModel,
 			{ text, projectFiles },
 			{
 				apiKey: auth.apiKey,
-				headers: auth.headers,
+				headers:
+					classifierModel.provider === OPENABCODE_PROVIDER
+						? { ...auth.headers, [OPENABCODE_ROUTING_DECISION_HEADER]: decisionID }
+						: auth.headers,
 				env: auth.env,
 			},
 		);
@@ -1610,6 +1618,7 @@ export class AgentSession {
 
 		const previousModel = this.model;
 		const decision: RoutingDecision = {
+			id: decisionID,
 			provider: choice,
 			source: picked.source,
 			classifierModel: { provider: classifierModel.provider, id: classifierModel.id },
@@ -1618,6 +1627,9 @@ export class AgentSession {
 			timestamp: Date.now(),
 		};
 		this.sessionManager.appendCustomEntry(ROUTING_ENTRY_TYPE, decision);
+		if (picked.model.provider === OPENABCODE_PROVIDER) {
+			this.agent.requestHeaders = { [OPENABCODE_ROUTING_DECISION_HEADER]: decision.id };
+		}
 
 		if (previousModel && modelsAreEqual(picked.model, previousModel)) return;
 

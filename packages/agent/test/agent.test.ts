@@ -101,6 +101,25 @@ describe("Agent", () => {
 		expect(agent.state.thinkingLevel).toBe("low");
 	});
 
+	it("forwards dynamic request headers to the stream function", async () => {
+		let capturedHeaders: Record<string, string | null> | undefined;
+		const agent = new Agent({
+			requestHeaders: { "x-openabcode-routing-decision-id": "rtd_123" },
+			streamFn: (_model, _context, options) => {
+				capturedHeaders = options?.headers;
+				const stream = new MockAssistantStream();
+				queueMicrotask(() => {
+					stream.push({ type: "done", reason: "stop", message: createAssistantMessage("ok") });
+				});
+				return stream;
+			},
+		});
+
+		await agent.prompt("hello");
+
+		expect(capturedHeaders).toEqual({ "x-openabcode-routing-decision-id": "rtd_123" });
+	});
+
 	it("should subscribe to events", () => {
 		const agent = new Agent();
 

@@ -390,6 +390,7 @@ export class InteractiveMode {
 	// Streaming message tracking
 	private streamingComponent: AssistantMessageComponent | undefined = undefined;
 	private streamingMessage: AssistantMessage | undefined = undefined;
+	private optimisticallyRenderedUserMessages = new WeakSet<AgentMessage>();
 
 	// Tool execution tracking: toolCallId -> component
 	private pendingTools = new Map<string, ToolExecutionComponent>();
@@ -926,7 +927,9 @@ export class InteractiveMode {
 		while (true) {
 			const userInput = await this.getUserInput();
 			try {
-				await this.session.prompt(userInput);
+				await this.session.prompt(userInput, {
+					onPromptSubmitted: (message) => this.renderSubmittedPrompt(message),
+				});
 			} catch (error: unknown) {
 				const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
 				this.showError(errorMessage);
@@ -2907,7 +2910,11 @@ export class InteractiveMode {
 					this.addMessageToChat(event.message);
 					this.ui.requestRender();
 				} else if (event.message.role === "user") {
-					this.addMessageToChat(event.message);
+					if (this.optimisticallyRenderedUserMessages.has(event.message)) {
+						this.optimisticallyRenderedUserMessages.delete(event.message);
+					} else {
+						this.addMessageToChat(event.message);
+					}
 					this.updatePendingMessagesDisplay();
 					this.ui.requestRender();
 				} else if (event.message.role === "assistant") {
@@ -3300,6 +3307,13 @@ export class InteractiveMode {
 				const _exhaustive: never = message;
 			}
 		}
+	}
+
+	private renderSubmittedPrompt(message: AgentMessage): void {
+		this.optimisticallyRenderedUserMessages.add(message);
+		this.addMessageToChat(message);
+		this.editor.setText("");
+		this.ui.requestRender();
 	}
 
 	private renderSessionItems(

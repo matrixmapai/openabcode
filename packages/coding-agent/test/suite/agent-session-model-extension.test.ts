@@ -128,12 +128,57 @@ describe("AgentSession model and extension characterization", () => {
 			.filter((entry): entry is CustomEntry => entry.type === "custom" && entry.customType === "openabcode-routing");
 		expect(routingEntries).toHaveLength(2);
 		expect(routingEntries[0]?.data).toMatchObject({
+			id: expect.stringMatching(/^rtd_[0-9a-f-]{36}$/),
 			provider: "anthropic",
 			classifierModel: { provider: classifier.provider, id: classifier.id },
 			model: { provider: "anthropic", id: "claude-route" },
 		});
 		expect(harness.sessionManager.getEntries().filter((entry) => entry.type === "model_change")).toHaveLength(1);
+		expect(harness.session.agent.requestHeaders).toBeUndefined();
 		expect(harness.getPendingResponseCount()).toBe(0);
+	});
+
+	it("forwards hosted routing decision IDs and clears them outside Route mode", async () => {
+		const harness = await createHarness({ models: [{ id: "classifier", name: "Classifier" }] });
+		harnesses.push(harness);
+		const classifier = harness.getModel("classifier")!;
+		harness.authStorage.setRuntimeApiKey("openabcode", "hosted-key");
+		harness.session.modelRegistry.registerProvider("openabcode", {
+			baseUrl: "https://gateway.openabcode.com/v1",
+			apiKey: "hosted-key",
+			api: classifier.api,
+			models: [
+				{ ...classifier, id: "gpt-5.4", name: "GPT" },
+				{ ...classifier, id: "gemini-3.1-flash-lite", name: "Gemini" },
+				{ ...classifier, id: "claude-haiku-4.5", name: "Claude" },
+			],
+		});
+		for (const [provider, id] of [
+			["openai", "gpt-5.4"],
+			["google", "gemini-3.1-flash-lite"],
+			["anthropic", "claude-haiku-4.5"],
+		] as const) {
+			harness.settingsManager.setRouterModel(provider, `openabcode/${id}`);
+		}
+		harness.settingsManager.setRouterClassifierModel(classifier.provider, classifier.id);
+		harness.session.setRouteMode("auto");
+		harness.setResponses([fauxAssistantMessage("google")]);
+
+		const maybeRoute = (
+			harness.session as unknown as { _maybeRouteModel(text: string): Promise<void> }
+		)._maybeRouteModel.bind(harness.session);
+		await maybeRoute("update this Flutter application");
+
+		const routingEntry = harness.sessionManager
+			.getEntries()
+			.find((entry): entry is CustomEntry => entry.type === "custom" && entry.customType === "openabcode-routing");
+		const decisionID = (routingEntry?.data as { id?: unknown } | undefined)?.id;
+		expect(typeof decisionID).toBe("string");
+		expect(harness.session.agent.requestHeaders).toEqual({ "x-openabcode-routing-decision-id": decisionID });
+
+		harness.session.setRouteMode("manual");
+		await maybeRoute("continue manually");
+		expect(harness.session.agent.requestHeaders).toBeUndefined();
 	});
 
 	it("cycles through scoped models and preserves the scoped thinking preference", async () => {

@@ -1,3 +1,4 @@
+import type { AgentMessage } from "@openabcode/agent-core";
 import { describe, expect, it, vi } from "vitest";
 import { InteractiveMode } from "../src/modes/interactive/interactive-mode.ts";
 
@@ -26,6 +27,14 @@ type InputContext = {
 type InteractiveModePrivate = {
 	setupEditorSubmitHandler(this: SubmitContext): void;
 	getUserInput(this: InputContext): Promise<string>;
+	renderSubmittedPrompt(this: SubmittedPromptContext, message: AgentMessage): void;
+};
+
+type SubmittedPromptContext = {
+	optimisticallyRenderedUserMessages: WeakSet<AgentMessage>;
+	addMessageToChat: (message: AgentMessage) => void;
+	editor: { setText: (text: string) => void };
+	ui: { requestRender: () => void };
 };
 
 const interactiveModePrototype = InteractiveMode.prototype as unknown as InteractiveModePrivate;
@@ -68,5 +77,26 @@ describe("InteractiveMode startup input", () => {
 		await expect(interactiveModePrototype.getUserInput.call(context)).resolves.toBe("queued prompt");
 		expect(context.onInputCallback).toBeUndefined();
 		expect(context.pendingUserInputs).toEqual([]);
+	});
+
+	it("renders and clears a submitted prompt immediately", () => {
+		const message: AgentMessage = {
+			role: "user",
+			content: [{ type: "text", text: "route this" }],
+			timestamp: Date.now(),
+		};
+		const context: SubmittedPromptContext = {
+			optimisticallyRenderedUserMessages: new WeakSet(),
+			addMessageToChat: vi.fn(),
+			editor: { setText: vi.fn() },
+			ui: { requestRender: vi.fn() },
+		};
+
+		interactiveModePrototype.renderSubmittedPrompt.call(context, message);
+
+		expect(context.optimisticallyRenderedUserMessages.has(message)).toBe(true);
+		expect(context.addMessageToChat).toHaveBeenCalledWith(message);
+		expect(context.editor.setText).toHaveBeenCalledWith("");
+		expect(context.ui.requestRender).toHaveBeenCalledTimes(1);
 	});
 });
