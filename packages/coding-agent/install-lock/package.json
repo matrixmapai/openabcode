@@ -1,10 +1,10 @@
 {
 	"name": "@openabcode/coding-agent-install",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"private": true,
 	"description": "Lockfile root used by the Pi installer and updater.",
 	"dependencies": {
-		"@openabcode/coding-agent": "1.0.2"
+		"@openabcode/coding-agent": "1.0.3"
 	},
 	"overrides": {
 		"rimraf": "6.1.2",
