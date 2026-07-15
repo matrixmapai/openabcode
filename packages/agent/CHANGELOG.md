@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-07-15
+
+### Added
+
+- Added dynamic per-run request headers for provider stream calls.
+
 ## [1.0.2] - 2026-07-14
 
 ## [1.0.1] - 2026-07-14

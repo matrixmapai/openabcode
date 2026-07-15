@@ -11,6 +11,7 @@
 import type { ModelRegistry } from "./model-registry.ts";
 
 export const OPENABCODE_PROVIDER = "openabcode";
+export const OPENABCODE_ROUTING_DECISION_HEADER = "x-openabcode-routing-decision-id";
 
 const DEFAULT_BASE_URL = "https://gateway.openabcode.com/v1";
 

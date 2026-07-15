@@ -31,6 +31,7 @@ export interface RouteSignal {
 }
 
 export interface RoutingDecision {
+	id: string;
 	provider: ProviderChoice;
 	source: "classifier" | "preferred";
 	classifierModel: { provider: string; id: string };

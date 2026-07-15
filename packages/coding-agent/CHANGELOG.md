@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-07-15
+
+### Fixed
+
+- Fixed hosted Route requests to report stable routing decision IDs for usage correlation.
+- Fixed submitted user messages appearing only after Route classification completed in interactive mode.
+
 ## [1.0.2] - 2026-07-14
 
 ### Fixed

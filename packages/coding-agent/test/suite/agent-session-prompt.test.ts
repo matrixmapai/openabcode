@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { AgentTool } from "@openabcode/agent-core";
+import type { AgentMessage, AgentTool } from "@openabcode/agent-core";
 import { fauxAssistantMessage, fauxToolCall, type Model } from "@openabcode/ai";
 import { Type } from "typebox";
 import { afterEach, describe, expect, it } from "vitest";
@@ -38,6 +38,35 @@ describe("AgentSession prompt characterization", () => {
 		expect(harness.session.messages.map((message) => message.role)).toEqual(["user", "assistant"]);
 		expect(getMessageText(harness.session.messages[0]!)).toBe("hi");
 		expect(harness.getPendingResponseCount()).toBe(0);
+	});
+
+	it("emits the submitted user message before routing completes", async () => {
+		const harness = await createHarness();
+		harnesses.push(harness);
+		harness.setResponses([fauxAssistantMessage("hello")]);
+		let releaseRouting = () => {};
+		const routingGate = new Promise<void>((resolve) => {
+			releaseRouting = resolve;
+		});
+		const session = harness.session as unknown as { _maybeRouteModel(text: string): Promise<void> };
+		session._maybeRouteModel = async () => routingGate;
+
+		let submitted: AgentMessage | undefined;
+		const promptPromise = harness.session.prompt("show immediately", {
+			onPromptSubmitted: (message) => {
+				submitted = message;
+			},
+		});
+
+		expect(submitted).toBeDefined();
+		expect(getMessageText(submitted!)).toBe("show immediately");
+		expect(harness.eventsOfType("message_start").filter((event) => event.message.role === "user")).toHaveLength(0);
+
+		releaseRouting();
+		await promptPromise;
+
+		const userStart = harness.eventsOfType("message_start").find((event) => event.message.role === "user");
+		expect(userStart?.message).toBe(submitted);
 	});
 
 	it("handles a tool call turn and waits for the follow-up LLM response", async () => {
