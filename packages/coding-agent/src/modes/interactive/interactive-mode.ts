@@ -931,6 +931,7 @@ export class InteractiveMode {
 					onPromptSubmitted: (message) => this.renderSubmittedPrompt(message),
 				});
 			} catch (error: unknown) {
+				this.clearStatusIndicator("working");
 				const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
 				this.showError(errorMessage);
 			}
@@ -1849,6 +1850,25 @@ export class InteractiveMode {
 		this.activeStatusIndicator = indicator;
 		this.statusContainer.clear();
 		this.statusContainer.addChild(indicator);
+	}
+
+	private showWorkingStatus(): void {
+		if (!this.workingVisible) {
+			this.clearStatusIndicator("working");
+			return;
+		}
+		if (this.activeStatusIndicator?.kind === "working") {
+			this.activeStatusIndicator.setMessage(this.workingMessage ?? this.defaultWorkingMessage);
+			this.activeStatusIndicator.setIndicator(this.workingIndicatorOptions);
+			return;
+		}
+		this.showStatusIndicator(
+			new WorkingStatusIndicator(
+				this.ui,
+				this.workingMessage ?? this.defaultWorkingMessage,
+				this.workingIndicatorOptions,
+			),
+		);
 	}
 
 	private clearStatusIndicator(kind?: StatusIndicator["kind"]): void {
@@ -2868,17 +2888,7 @@ export class InteractiveMode {
 					this.defaultEditor.onEscape = this.retryEscapeHandler;
 					this.retryEscapeHandler = undefined;
 				}
-				if (this.workingVisible) {
-					this.showStatusIndicator(
-						new WorkingStatusIndicator(
-							this.ui,
-							this.workingMessage ?? this.defaultWorkingMessage,
-							this.workingIndicatorOptions,
-						),
-					);
-				} else {
-					this.clearStatusIndicator();
-				}
+				this.showWorkingStatus();
 				this.ui.requestRender();
 				break;
 
@@ -3313,6 +3323,7 @@ export class InteractiveMode {
 		this.optimisticallyRenderedUserMessages.add(message);
 		this.addMessageToChat(message);
 		this.editor.setText("");
+		this.showWorkingStatus();
 		this.ui.requestRender();
 	}
 
