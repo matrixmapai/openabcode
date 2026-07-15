@@ -1,6 +1,6 @@
 {
 	"name": "@openabcode/orchestrator",
-	"version": "1.0.3",
+	"version": "1.0.4",
 	"description": "Experimental orchestration package for OpenABCode coding agents",
 	"type": "module",
 	"main": "./dist/index.js",
@@ -38,7 +38,7 @@
 		"node": ">=22.19.0"
 	},
 	"dependencies": {
-		"@openabcode/coding-agent": "^1.0.3"
+		"@openabcode/coding-agent": "^1.0.4"
 	},
 	"devDependencies": {
 		"shx": "0.4.0"
