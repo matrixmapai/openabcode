@@ -34,6 +34,7 @@ type SubmittedPromptContext = {
 	optimisticallyRenderedUserMessages: WeakSet<AgentMessage>;
 	addMessageToChat: (message: AgentMessage) => void;
 	editor: { setText: (text: string) => void };
+	showWorkingStatus: () => void;
 	ui: { requestRender: () => void };
 };
 
@@ -89,6 +90,7 @@ describe("InteractiveMode startup input", () => {
 			optimisticallyRenderedUserMessages: new WeakSet(),
 			addMessageToChat: vi.fn(),
 			editor: { setText: vi.fn() },
+			showWorkingStatus: vi.fn(),
 			ui: { requestRender: vi.fn() },
 		};
 
@@ -97,6 +99,7 @@ describe("InteractiveMode startup input", () => {
 		expect(context.optimisticallyRenderedUserMessages.has(message)).toBe(true);
 		expect(context.addMessageToChat).toHaveBeenCalledWith(message);
 		expect(context.editor.setText).toHaveBeenCalledWith("");
+		expect(context.showWorkingStatus).toHaveBeenCalledTimes(1);
 		expect(context.ui.requestRender).toHaveBeenCalledTimes(1);
 	});
 });

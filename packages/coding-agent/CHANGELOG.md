@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.4] - 2026-07-15
+
+### Fixed
+
+- Fixed Route mode to show the interactive `Working...` indicator while task classification is in progress.
+
 ## [1.0.3] - 2026-07-15
 
 ### Fixed
