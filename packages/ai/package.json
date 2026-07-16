@@ -1,6 +1,6 @@
 {
 	"name": "@openabcode/ai",
-	"version": "1.0.5",
+	"version": "1.0.6",
 	"description": "Unified LLM API with automatic model discovery and provider configuration",
 	"type": "module",
 	"main": "./dist/index.js",
