@@ -90,10 +90,13 @@ import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.ts
 import type { ResourceExtensionPaths, ResourceLoader } from "./resource-loader.ts";
 import {
 	classifyProvider,
+	classifyProviderHeuristic,
+	type ProviderChoice,
 	pickRouteModel,
 	ROUTE_PROVIDER_CHOICES,
 	ROUTING_ENTRY_TYPE,
 	type RoutingDecision,
+	type RoutingMethod,
 } from "./router.ts";
 import type { BranchSummaryEntry, CompactionEntry, SessionEntry, SessionManager } from "./session-manager.ts";
 import { CURRENT_SESSION_VERSION, getLatestCompactionEntry, type SessionHeader } from "./session-manager.ts";
@@ -341,6 +344,10 @@ export class AgentSession {
 
 	// OpenABCode task routing ("auto" routes each prompt; "manual" respects the user's model choice)
 	private _routeMode: "auto" | "manual";
+
+	// Sticky routing: last provider choice, reused until a conflicting
+	// high-confidence heuristic signal or a manual model switch invalidates it.
+	private _lastRouteChoice?: ProviderChoice;
 
 	// Tool registry for extension getTools/setTools
 	private _toolRegistry: Map<string, AgentTool> = new Map();
@@ -1566,9 +1573,13 @@ export class AgentSession {
 	}
 
 	/**
-	 * OpenABCode task router: classify the prompt and switch to the best
-	 * available model before the provider turn. No-op when routing is manual,
-	 * no authenticated classifier model is configured, or no eligible model is available.
+	 * OpenABCode task router: pick the best provider for the prompt before the
+	 * provider turn via a three-stage pipeline:
+	 * 1. zero-cost heuristic (keywords, file extensions, project markers)
+	 * 2. sticky reuse of the previous choice
+	 * 3. LLM classifier fallback (first routed turn only)
+	 * No-op when routing is manual, no authenticated classifier model is
+	 * configured, or no eligible model is available.
 	 * The switch is per-turn: it does not persist a new default model.
 	 */
 	private async _maybeRouteModel(text: string): Promise<void> {
@@ -1588,7 +1599,7 @@ export class AgentSession {
 		);
 		if (!classifierModel) return;
 
-		// Skip the classifier call entirely when any execution family is unavailable.
+		// Skip routing entirely when any execution family is unavailable.
 		if (ROUTE_PROVIDER_CHOICES.some((choice) => !pickRouteModel(choice, available, hasAuth, configured))) return;
 
 		let projectFiles: string[] = [];
@@ -1598,21 +1609,45 @@ export class AgentSession {
 			// Routing signals are best-effort; classify without project files.
 		}
 
-		const auth = await this._modelRegistry.getApiKeyAndHeaders(classifierModel);
-		if (!auth.ok) return;
 		const decisionID = `rtd_${randomUUID()}`;
-		const choice = await classifyProvider(
-			classifierModel,
+		const heuristic = classifyProviderHeuristic(
 			{ text, projectFiles },
-			{
-				apiKey: auth.apiKey,
-				headers:
-					classifierModel.provider === OPENABCODE_PROVIDER
-						? { ...auth.headers, [OPENABCODE_ROUTING_DECISION_HEADER]: decisionID }
-						: auth.headers,
-				env: auth.env,
-			},
+			this.settingsManager.getRouterHeuristicKeywords(),
 		);
+
+		let choice: ProviderChoice;
+		let method: RoutingMethod;
+		let matchedSignals: string[] | undefined;
+		let usedClassifier = false;
+		if (heuristic?.confidence === "high") {
+			choice = heuristic.choice;
+			method = "heuristic";
+			matchedSignals = heuristic.matched;
+		} else if (this._lastRouteChoice) {
+			// Sticky: reuse the previous choice. Only a conflicting high-confidence
+			// heuristic (handled above) or a manual model switch re-routes.
+			choice = this._lastRouteChoice;
+			method = "sticky";
+		} else {
+			const auth = await this._modelRegistry.getApiKeyAndHeaders(classifierModel);
+			if (!auth.ok) return;
+			choice = await classifyProvider(
+				classifierModel,
+				{ text, projectFiles, recentContext: this._recentRouteContext() },
+				{
+					apiKey: auth.apiKey,
+					headers:
+						classifierModel.provider === OPENABCODE_PROVIDER
+							? { ...auth.headers, [OPENABCODE_ROUTING_DECISION_HEADER]: decisionID }
+							: auth.headers,
+					env: auth.env,
+				},
+			);
+			method = "classifier";
+			usedClassifier = true;
+		}
+		this._lastRouteChoice = choice;
+
 		const picked = pickRouteModel(choice, available, hasAuth, configured);
 		if (!picked) return;
 
@@ -1621,7 +1656,9 @@ export class AgentSession {
 			id: decisionID,
 			provider: choice,
 			source: picked.source,
-			classifierModel: { provider: classifierModel.provider, id: classifierModel.id },
+			method,
+			matchedSignals,
+			classifierModel: usedClassifier ? { provider: classifierModel.provider, id: classifierModel.id } : undefined,
 			model: { provider: picked.model.provider, id: picked.model.id },
 			previousModel: previousModel ? { provider: previousModel.provider, id: previousModel.id } : undefined,
 			timestamp: Date.now(),
@@ -1640,6 +1677,19 @@ export class AgentSession {
 		await this._emitModelSelect(picked.model, previousModel, "route");
 	}
 
+	/** Recent user prompts (truncated) used as extra classifier context. */
+	private _recentRouteContext(): string[] {
+		const snippets: string[] = [];
+		const messages = this.agent.state.messages;
+		for (let i = messages.length - 1; i >= 0 && snippets.length < 2; i--) {
+			const msg = messages[i];
+			if (msg.role !== "user") continue;
+			const text = this._getUserMessageText(msg as Message).trim();
+			if (text) snippets.unshift(text.slice(0, 200));
+		}
+		return snippets;
+	}
+
 	/**
 	 * Set model directly.
 	 * Validates that auth is configured, saves to session and settings.
@@ -1653,6 +1703,7 @@ export class AgentSession {
 		if (!options.preserveRouteMode) {
 			// Explicit model choices outside Route configuration are manual overrides.
 			this._routeMode = "manual";
+			this._lastRouteChoice = undefined;
 		}
 
 		const previousModel = this.model;
@@ -1673,6 +1724,7 @@ export class AgentSession {
 		}
 
 		this._routeMode = "manual";
+		this._lastRouteChoice = undefined;
 		const previousModel = this.model;
 		const thinkingLevel = this._getThinkingLevelForModelSwitch();
 		this.agent.state.model = model;

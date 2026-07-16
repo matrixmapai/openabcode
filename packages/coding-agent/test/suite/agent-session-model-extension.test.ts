@@ -114,11 +114,13 @@ describe("AgentSession model and extension characterization", () => {
 		}
 		harness.settingsManager.setRouterClassifierModel(classifier.provider, classifier.id);
 		harness.session.setRouteMode("auto");
-		harness.setResponses([fauxAssistantMessage("anthropic"), fauxAssistantMessage("anthropic")]);
+		harness.setResponses([fauxAssistantMessage("anthropic")]);
 
 		const maybeRoute = (
 			harness.session as unknown as { _maybeRouteModel(text: string): Promise<void> }
 		)._maybeRouteModel.bind(harness.session);
+		// Single weak heuristic signal ("refactor") is low confidence: first turn
+		// falls through to the classifier, the second reuses the sticky choice.
 		await maybeRoute("refactor this service");
 		await maybeRoute("debug the same service");
 
@@ -130,12 +132,89 @@ describe("AgentSession model and extension characterization", () => {
 		expect(routingEntries[0]?.data).toMatchObject({
 			id: expect.stringMatching(/^rtd_[0-9a-f-]{36}$/),
 			provider: "anthropic",
+			method: "classifier",
 			classifierModel: { provider: classifier.provider, id: classifier.id },
 			model: { provider: "anthropic", id: "claude-route" },
 		});
+		expect(routingEntries[1]?.data).toMatchObject({
+			provider: "anthropic",
+			method: "sticky",
+		});
+		expect((routingEntries[1]?.data as { classifierModel?: unknown }).classifierModel).toBeUndefined();
 		expect(harness.sessionManager.getEntries().filter((entry) => entry.type === "model_change")).toHaveLength(1);
 		expect(harness.session.agent.requestHeaders).toBeUndefined();
 		expect(harness.getPendingResponseCount()).toBe(0);
+	});
+
+	it("routes with the heuristic fast path and re-routes on a conflicting high-confidence signal", async () => {
+		const harness = await createHarness({ models: [{ id: "classifier", name: "Classifier" }] });
+		harnesses.push(harness);
+		const classifier = harness.getModel("classifier")!;
+
+		for (const [provider, id] of [
+			["openai", "gpt-route"],
+			["google", "gemini-route"],
+			["anthropic", "claude-route"],
+		] as const) {
+			harness.authStorage.setRuntimeApiKey(provider, `${provider}-key`);
+			harness.session.modelRegistry.registerProvider(provider, {
+				baseUrl: classifier.baseUrl,
+				apiKey: `${provider}-key`,
+				api: classifier.api,
+				models: [
+					{
+						id,
+						name: id,
+						reasoning: false,
+						input: ["text"],
+						cost: classifier.cost,
+						contextWindow: classifier.contextWindow,
+						maxTokens: classifier.maxTokens,
+					},
+				],
+			});
+			harness.settingsManager.setRouterModel(provider, `${provider}/${id}`);
+		}
+		harness.settingsManager.setRouterClassifierModel(classifier.provider, classifier.id);
+		harness.session.setRouteMode("auto");
+		// No classifier responses queued: every turn must resolve without an LLM call.
+
+		const maybeRoute = (
+			harness.session as unknown as { _maybeRouteModel(text: string): Promise<void> }
+		)._maybeRouteModel.bind(harness.session);
+		await maybeRoute("add a Flutter screen to the Android app");
+		expect(harness.session.model?.id).toBe("gemini-route");
+
+		// Weak signal sticks with the previous choice.
+		await maybeRoute("debug that screen");
+		expect(harness.session.model?.id).toBe("gemini-route");
+
+		// Conflicting high-confidence heuristic re-routes.
+		await maybeRoute("refactor the SwiftUI architecture of the iOS companion app");
+		expect(harness.session.model?.id).toBe("claude-route");
+
+		const methods = harness.sessionManager
+			.getEntries()
+			.filter((entry): entry is CustomEntry => entry.type === "custom" && entry.customType === "openabcode-routing")
+			.map((entry) => (entry.data as { method?: string }).method);
+		expect(methods).toEqual(["heuristic", "sticky", "heuristic"]);
+		expect(harness.getPendingResponseCount()).toBe(0);
+	});
+
+	it("clears the sticky routing choice on a manual model switch", async () => {
+		const harness = await createHarness({
+			models: [
+				{ id: "faux-1", name: "One", reasoning: true },
+				{ id: "faux-2", name: "Two", reasoning: true },
+			],
+		});
+		harnesses.push(harness);
+		harness.session.setRouteMode("auto");
+
+		(harness.session as unknown as { _lastRouteChoice?: string })._lastRouteChoice = "google";
+		await harness.session.setModel(harness.getModel("faux-2")!);
+
+		expect((harness.session as unknown as { _lastRouteChoice?: string })._lastRouteChoice).toBeUndefined();
 	});
 
 	it("forwards hosted routing decision IDs and clears them outside Route mode", async () => {
