@@ -14,6 +14,7 @@ export const ROUTE_PROVIDER_CHOICES = ["openai", "google", "anthropic"] as const
 export type ProviderChoice = (typeof ROUTE_PROVIDER_CHOICES)[number];
 
 const DEFAULT_PROVIDER_CHOICE: ProviderChoice = "openai";
+const OPENROUTER_PROVIDER = "openrouter";
 const CLASSIFIER_SYSTEM_PROMPT = "Classify the coding task into exactly one model provider.";
 const ROUTING_RULES: Record<ProviderChoice, string> = {
 	openai:
@@ -79,9 +80,36 @@ const HEURISTIC_KEYWORDS: Record<ProviderChoice, string[]> = {
 		"firestore",
 		"chrome extension",
 		"play store",
+		"安卓",
+		"chrome 插件",
 	],
-	anthropic: ["refactor", "debug", "architecture", "migration", "swift", "ios", "macos", "xcode"],
-	openai: ["algorithm", "code review", "unit test", "benchmark", "data analysis", "devops", "pipeline"],
+	anthropic: [
+		"refactor",
+		"debug",
+		"architecture",
+		"migration",
+		"swift",
+		"ios",
+		"macos",
+		"xcode",
+		"重构",
+		"调试",
+		"架构",
+		"迁移",
+	],
+	openai: [
+		"algorithm",
+		"code review",
+		"unit test",
+		"benchmark",
+		"data analysis",
+		"devops",
+		"pipeline",
+		"算法",
+		"单元测试",
+		"代码审查",
+		"数据分析",
+	],
 };
 
 const HEURISTIC_FILE_EXTENSIONS: Record<string, ProviderChoice> = {
@@ -252,6 +280,9 @@ export async function classifyProvider(
 export function routeProviderOf(model: Model<Api>): ProviderChoice | undefined {
 	if (model.provider === OPENABCODE_PROVIDER) {
 		return OPENABCODE_HOSTED_UPSTREAM[model.id];
+	}
+	if (model.provider === OPENROUTER_PROVIDER) {
+		return ROUTE_PROVIDER_CHOICES.find((provider) => model.id.startsWith(`${provider}/`));
 	}
 	if (isProviderChoice(model.provider)) return model.provider;
 	return undefined;
