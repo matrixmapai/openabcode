@@ -146,7 +146,7 @@ Route · gpt-5.5 · gemini-3.5-flash · claude-opus-4.8
 
 These are the available Route choices, not the latest classification result. Every completed classification is persisted in the session JSONL as an `openabcode-routing` entry with the classifier model, selected family, execution model, previous model, and timestamp.
 
-Route can use direct providers, OpenRouter, or the OpenABCode hosted gateway. For example, `openabcode/gemini-3.1-flash-lite` is registered locally under the `openabcode` provider and routed by the gateway to Google's upstream provider.
+Route can use direct providers, OpenRouter, or the OpenABCode gateway. For example, `openabcode/gemini-3.1-flash-lite` is registered locally under the `openabcode` provider and routed by the gateway to Google's upstream provider.
 
 See [docs/usage.md#route-mode](docs/usage.md#route-mode) for settings JSON, audit examples, fallback behavior, and troubleshooting.
 

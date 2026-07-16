@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.5] - 2026-07-16
+
+### Changed
+
+- Updated README terminology for using the OpenABCode gateway.
+
 ## [1.0.4] - 2026-07-15
 
 ### Fixed

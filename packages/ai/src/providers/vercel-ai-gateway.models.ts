@@ -2755,6 +2755,23 @@ export const VERCEL_AI_GATEWAY_MODELS = {
 		contextWindow: 256000,
 		maxTokens: 256000,
 	} satisfies Model<"anthropic-messages">,
+	"thinkingmachines/inkling": {
+		id: "thinkingmachines/inkling",
+		name: "Inkling",
+		api: "anthropic-messages",
+		provider: "vercel-ai-gateway",
+		baseUrl: "https://ai-gateway.vercel.sh",
+		reasoning: true,
+		input: ["text", "image"],
+		cost: {
+			input: 1,
+			output: 4.05,
+			cacheRead: 0.17,
+			cacheWrite: 0,
+		},
+		contextWindow: 256000,
+		maxTokens: 256000,
+	} satisfies Model<"anthropic-messages">,
 	"xai/grok-4.1-fast-non-reasoning": {
 		id: "xai/grok-4.1-fast-non-reasoning",
 		name: "Grok 4.1 Fast Non-Reasoning",
