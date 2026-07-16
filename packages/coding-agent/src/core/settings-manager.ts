@@ -70,6 +70,14 @@ export interface RouterSettings {
 		anthropic?: string; // "provider/modelId" preferred for anthropic-routed tasks
 		openai?: string; // "provider/modelId" preferred for openai-routed tasks
 	};
+	heuristics?: {
+		// Extra keywords per provider that extend the built-in heuristic routing tables
+		keywords?: {
+			google?: string[];
+			anthropic?: string[];
+			openai?: string[];
+		};
+	};
 }
 
 export type TransportSetting = Transport;
@@ -803,6 +811,10 @@ export class SettingsManager {
 
 	getRouterModels(): { google?: string; anthropic?: string; openai?: string } {
 		return this.settings.router?.models ?? {};
+	}
+
+	getRouterHeuristicKeywords(): { google?: string[]; anthropic?: string[]; openai?: string[] } {
+		return this.settings.router?.heuristics?.keywords ?? {};
 	}
 
 	getDefaultThinkingLevel(): ThinkingLevel | undefined {

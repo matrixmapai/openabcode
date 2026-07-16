@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+## [1.0.6] - 2026-07-16
+
+### Changed
+
+- Changed Route to use configurable heuristic signals and sticky provider choices before falling back to LLM classification, reducing repeated classifier calls and model switching within a task.
+
+### Fixed
+
+- Fixed overlapping reftable watchers causing duplicate footer branch refreshes.
+
 ## [1.0.5] - 2026-07-16
 
 ### Changed

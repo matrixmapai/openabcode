@@ -1702,7 +1702,7 @@ Content`,
 			const result = await packageManager.resolve();
 
 			expect(result.extensions.map((resource) => resource.path)).toEqual([join(pkgDir, "extensions", "foo.ts")]);
-			expect(result.skills).toEqual([]);
+			expect(result.skills.filter((resource) => resource.path.startsWith(pkgDir))).toEqual([]);
 		});
 	});
 

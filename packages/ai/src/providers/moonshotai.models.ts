@@ -168,4 +168,22 @@ export const MOONSHOTAI_MODELS = {
 		contextWindow: 262144,
 		maxTokens: 262144,
 	} satisfies Model<"openai-completions">,
+	"kimi-k3": {
+		id: "kimi-k3",
+		name: "Kimi K3",
+		api: "openai-completions",
+		provider: "moonshotai",
+		baseUrl: "https://api.moonshot.ai/v1",
+		compat: {"supportsStore":false,"supportsDeveloperRole":false,"supportsReasoningEffort":false,"maxTokensField":"max_tokens","supportsStrictMode":false,"thinkingFormat":"deepseek"},
+		reasoning: true,
+		input: ["text", "image"],
+		cost: {
+			input: 0,
+			output: 0,
+			cacheRead: 0,
+			cacheWrite: 0,
+		},
+		contextWindow: 1048576,
+		maxTokens: 131072,
+	} satisfies Model<"openai-completions">,
 } as const;

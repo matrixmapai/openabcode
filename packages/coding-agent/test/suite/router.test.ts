@@ -2,7 +2,7 @@ import type { Api, Model } from "@openabcode/ai";
 import { fauxAssistantMessage, registerFauxProvider } from "@openabcode/ai/compat";
 import { describe, expect, it } from "vitest";
 import { OPENABCODE_HOSTED_UPSTREAM, OPENABCODE_PROVIDER } from "../../src/core/openabcode-provider.ts";
-import { classifyProvider, pickRouteModel, routeProviderOf } from "../../src/core/router.ts";
+import { classifyProvider, classifyProviderHeuristic, pickRouteModel, routeProviderOf } from "../../src/core/router.ts";
 import { BUILTIN_SLASH_COMMANDS } from "../../src/core/slash-commands.ts";
 
 function model(provider: string, id: string): Model<Api> {
@@ -97,5 +97,67 @@ describe("OpenABCode router", () => {
 		expect(
 			pickRouteModel("anthropic", models, () => false, { anthropic: "anthropic/claude-opus-4-8" }),
 		).toBeUndefined();
+	});
+});
+
+describe("OpenABCode heuristic router", () => {
+	it("returns undefined when no signal matches", () => {
+		expect(classifyProviderHeuristic({ text: "please help me with this task" })).toBeUndefined();
+	});
+
+	it("classifies with high confidence when multiple signals agree", () => {
+		const result = classifyProviderHeuristic({
+			text: "add a Flutter screen to the Android app",
+			projectFiles: ["pubspec.yaml", "README.md"],
+		});
+		expect(result?.choice).toBe("google");
+		expect(result?.confidence).toBe("high");
+		expect(result?.matched).toContain("keyword:flutter");
+		expect(result?.matched).toContain("project:pubspec.yaml");
+	});
+
+	it("classifies with low confidence on a single weak signal", () => {
+		const result = classifyProviderHeuristic({ text: "improve the algorithm here" });
+		expect(result?.choice).toBe("openai");
+		expect(result?.confidence).toBe("low");
+	});
+
+	it("matches Chinese keywords", () => {
+		const result = classifyProviderHeuristic({ text: "帮我重构这个模块的架构" });
+		expect(result?.choice).toBe("anthropic");
+		expect(result?.confidence).toBe("high");
+	});
+
+	it("uses word boundaries for ASCII keywords", () => {
+		// "kiosk" must not match "ios"
+		expect(classifyProviderHeuristic({ text: "render the kiosk view" })).toBeUndefined();
+	});
+
+	it("scores file extensions and project bundle markers", () => {
+		const result = classifyProviderHeuristic({
+			text: "update the view",
+			fileNames: ["Sources/App/ContentView.swift"],
+			projectFiles: ["Package.swift", "MyApp.xcodeproj"],
+		});
+		expect(result?.choice).toBe("anthropic");
+		expect(result?.confidence).toBe("high");
+	});
+
+	it("returns undefined on a tie between providers", () => {
+		const result = classifyProviderHeuristic({ text: "debug the flutter app" });
+		// "debug" (anthropic) vs "flutter" (google) — one signal each
+		expect(result).toBeUndefined();
+	});
+
+	it("extends the built-in tables with custom keywords from settings", () => {
+		const withoutCustom = classifyProviderHeuristic({ text: "tune the acme-widget renderer" });
+		expect(withoutCustom).toBeUndefined();
+
+		const result = classifyProviderHeuristic(
+			{ text: "tune the acme-widget renderer and its acme runtime" },
+			{ anthropic: ["acme-widget", "acme runtime"] },
+		);
+		expect(result?.choice).toBe("anthropic");
+		expect(result?.confidence).toBe("high");
 	});
 });

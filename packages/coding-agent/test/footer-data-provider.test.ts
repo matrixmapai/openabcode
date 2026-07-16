@@ -87,6 +87,10 @@ async function waitFor(condition: () => boolean, timeoutMs = 3000): Promise<void
 	}
 }
 
+async function waitForWatcherStartup(): Promise<void> {
+	await new Promise((resolve) => setTimeout(resolve, 300));
+}
+
 describe("FooterDataProvider reftable branch detection", () => {
 	let originalCwd: string;
 	let tempDir: string;
@@ -177,8 +181,9 @@ describe("FooterDataProvider reftable branch detection", () => {
 			vi.mocked(spawnSync).mockClear();
 			const onBranchChange = vi.fn();
 			provider.onBranchChange(onBranchChange);
+			await waitForWatcherStartup();
 
-			writeFileSync(join(reftableDir, "tables.list"), "1\n");
+			writeFileSync(join(reftableDir, "tables.list"), "updated\n");
 			await waitFor(() => vi.mocked(execFile).mock.calls.length === 1);
 
 			expect(vi.mocked(execFile)).toHaveBeenCalledTimes(1);
@@ -198,10 +203,11 @@ describe("FooterDataProvider reftable branch detection", () => {
 		try {
 			expect(provider.getGitBranch()).toBe("main");
 			vi.mocked(execFile).mockClear();
+			await waitForWatcherStartup();
 
-			writeFileSync(join(reftableDir, "tables.list"), "1\n");
-			writeFileSync(join(reftableDir, "tables.list"), "2\n");
-			writeFileSync(join(reftableDir, "tables.list"), "3\n");
+			writeFileSync(join(reftableDir, "tables.list"), "updated-1\n");
+			writeFileSync(join(reftableDir, "tables.list"), "updated-2-longer\n");
+			writeFileSync(join(reftableDir, "tables.list"), "updated-3-longest\n");
 			await waitFor(() => vi.mocked(execFile).mock.calls.length === 1);
 			await new Promise((resolve) => setTimeout(resolve, 650));
 
@@ -221,8 +227,9 @@ describe("FooterDataProvider reftable branch detection", () => {
 			resolvedBranch = "foo";
 			const onBranchChange = vi.fn();
 			provider.onBranchChange(onBranchChange);
+			await waitForWatcherStartup();
 
-			writeFileSync(join(reftableDir, "tables.list"), "1\n");
+			writeFileSync(join(reftableDir, "tables.list"), "updated\n");
 			await waitFor(() => vi.mocked(execFile).mock.calls.length === 1);
 			await waitFor(() => provider.getGitBranch() === "foo");
 
