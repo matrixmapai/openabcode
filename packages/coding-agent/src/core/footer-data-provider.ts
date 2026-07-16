@@ -199,10 +199,13 @@ export class FooterDataProvider {
 	}
 
 	private scheduleRefresh(): void {
-		if (this.disposed || this.refreshTimer) return;
+		if (this.disposed) return;
 		if (this.refreshInFlight) {
 			this.refreshPending = true;
 			return;
+		}
+		if (this.refreshTimer) {
+			clearTimeout(this.refreshTimer);
 		}
 		this.refreshTimer = setTimeout(() => {
 			this.refreshTimer = null;
