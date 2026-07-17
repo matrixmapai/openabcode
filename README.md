@@ -10,7 +10,7 @@
 
 # OpenABCode
 
-OpenABCode is a terminal coding agent with automatic task routing. Route classifies each prompt, selects the configured OpenAI, Google, or Anthropic model for the task, and then runs the same agent and tool loop with the selected model.
+OpenABCode is a coding agent with automatic task routing. It classifies each task, selects the optimal model (like ChatGPT, Claude, or Gemini) for it, and runs a unified agent-and-tool loop with the chosen provider.
 
 Use your own provider credentials or the OpenABCode gateway. The CLI also supports fixed-model operation, custom providers, extensions, skills, prompt templates, and themes.
 
