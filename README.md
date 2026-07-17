@@ -16,7 +16,7 @@ Use your own provider credentials or the OpenABCode gateway. The CLI also suppor
 
 <p align="center">
   <a href="https://openabcode.com">
-    <img src="./assets/routing-demo.svg" alt="OpenABCode routes coding tasks across Gemini, Claude, and ChatGPT" width="900">
+    <img src="./assets/routing-demo.svg" width="900">
   </a>
 </p>
 
