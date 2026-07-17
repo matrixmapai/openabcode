@@ -39,3 +39,5 @@ plans/
 .openabcode/hf-sessions/
 .openabcode/hf-sessions-backup/
 collect.sh
+routing-demo.gif
+svg-to-gif.mjs
