@@ -58,6 +58,43 @@ Inside the interactive CLI:
 
 When Route is on, the footer shows the configured execution models. Every completed routing decision is also stored in the session JSONL for audit.
 
+## Customizing Route Rules
+
+Route rules, heuristic keywords, file extension mappings, project markers, and the default provider can all be customized in `~/.openabcode/agent/settings.json` (global) or `.openabcode/settings.json` (project-level). When a field is set, it fully replaces the corresponding built-in default.
+
+```json
+{
+  "router": {
+    "rules": {
+      "openai": "Test and automation — algorithms, code review, testing, data analysis, scripting",
+      "google": "Google ecosystem — Android, Flutter, Firebase, Google Cloud, Kotlin",
+      "anthropic": "General development — all code writing, editing, debugging, architecture, UI"
+    },
+    "keywords": {
+      "openai": ["algorithm", "unit test", "benchmark", "data analysis", "pipeline"],
+      "google": ["android", "flutter", "dart", "firebase", "gcp"],
+      "anthropic": ["refactor", "debug", "architecture", "implement", "fix"]
+    },
+    "fileExtensions": {
+      ".kt": "google",
+      ".dart": "google",
+      ".rs": "anthropic",
+      ".ts": "anthropic",
+      ".sh": "openai"
+    },
+    "projectMarkers": {
+      "pubspec.yaml": "google",
+      "cargo.toml": "anthropic",
+      "package.json": "anthropic",
+      "main.tf": "openai"
+    },
+    "defaultProvider": "anthropic"
+  }
+}
+```
+
+Each field is optional and independent — only configure what you want to override.
+
 ## Architecture
 
 ```text
