@@ -1,6 +1,6 @@
 {
 	"name": "@openabcode/coding-agent",
-	"version": "1.0.6",
+	"version": "1.0.7",
 	"description": "Coding agent CLI with read, bash, edit, write tools and session management",
 	"type": "module",
 	"piConfig": {
@@ -41,9 +41,9 @@
 		"prepublishOnly": "npm run clean && npm run build && npm run shrinkwrap"
 	},
 	"dependencies": {
-		"@openabcode/agent-core": "^1.0.6",
-		"@openabcode/ai": "^1.0.6",
-		"@openabcode/tui": "^1.0.6",
+		"@openabcode/agent-core": "^1.0.7",
+		"@openabcode/ai": "^1.0.7",
+		"@openabcode/tui": "^1.0.7",
 		"@silvia-odwyer/photon-node": "0.3.4",
 		"chalk": "5.6.2",
 		"cross-spawn": "7.0.6",

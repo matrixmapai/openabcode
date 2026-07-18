@@ -1,7 +1,10 @@
 import type { Api, Model } from "@openabcode/ai";
 import { fauxAssistantMessage, registerFauxProvider } from "@openabcode/ai/compat";
+import {
+	OPENABCODE_HOSTED_UPSTREAM,
+	OPENABCODE_PROVIDER_ID as OPENABCODE_PROVIDER,
+} from "@openabcode/ai/providers/openabcode";
 import { describe, expect, it } from "vitest";
-import { OPENABCODE_HOSTED_UPSTREAM, OPENABCODE_PROVIDER } from "../../src/core/openabcode-provider.ts";
 import { classifyProvider, classifyProviderHeuristic, pickRouteModel, routeProviderOf } from "../../src/core/router.ts";
 import { BUILTIN_SLASH_COMMANDS } from "../../src/core/slash-commands.ts";
 

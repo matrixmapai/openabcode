@@ -36,6 +36,10 @@ import {
 	resetApiProviders,
 	streamSimple,
 } from "@openabcode/ai/compat";
+import {
+	OPENABCODE_PROVIDER_ID as OPENABCODE_PROVIDER,
+	OPENABCODE_ROUTING_DECISION_HEADER,
+} from "@openabcode/ai/providers/openabcode";
 import { getThemeByName, theme } from "../modes/interactive/theme/theme.ts";
 import { stripFrontmatter } from "../utils/frontmatter.ts";
 import { resolvePath } from "../utils/paths.ts";
@@ -85,7 +89,6 @@ import {
 import { emitSessionShutdownEvent } from "./extensions/runner.ts";
 import type { BashExecutionMessage, CustomMessage } from "./messages.ts";
 import type { ModelRegistry } from "./model-registry.ts";
-import { OPENABCODE_PROVIDER, OPENABCODE_ROUTING_DECISION_HEADER } from "./openabcode-provider.ts";
 import { expandPromptTemplate, type PromptTemplate } from "./prompt-templates.ts";
 import type { ResourceExtensionPaths, ResourceLoader } from "./resource-loader.ts";
 import {

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-07-18
+
+### Changed
+
+- Moved OpenABCode provider registration from coding-agent to `@openabcode/ai` as a built-in provider.
+
 ## [1.0.6] - 2026-07-16
 
 ### Changed

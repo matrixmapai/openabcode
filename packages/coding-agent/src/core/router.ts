@@ -8,7 +8,10 @@
 
 import type { Api, Model, SimpleStreamOptions } from "@openabcode/ai";
 import { completeSimple } from "@openabcode/ai/compat";
-import { OPENABCODE_HOSTED_UPSTREAM, OPENABCODE_PROVIDER } from "./openabcode-provider.ts";
+import {
+	OPENABCODE_HOSTED_UPSTREAM,
+	OPENABCODE_PROVIDER_ID as OPENABCODE_PROVIDER,
+} from "@openabcode/ai/providers/openabcode";
 
 export const ROUTE_PROVIDER_CHOICES = ["openai", "google", "anthropic"] as const;
 export type ProviderChoice = (typeof ROUTE_PROVIDER_CHOICES)[number];
@@ -18,11 +21,11 @@ const OPENROUTER_PROVIDER = "openrouter";
 const CLASSIFIER_SYSTEM_PROMPT = "Classify the coding task into exactly one model provider.";
 const ROUTING_RULES: Record<ProviderChoice, string> = {
 	openai:
-		"Test and automation — algorithms, code review, testing, type systems, multimodal/vision, data analysis, scripting",
+		"General coding default — choose for simple edits, simple UI changes, tests, scripts, algorithms, code review, data analysis, and tasks that do not clearly fit another provider",
 	google:
-		"Google ecosystem — Android, Flutter, Google cloud platform, Firebase, Chrome extensions, Kotlin, Gradle, Google APIs",
+		"Google/mobile ecosystem — choose when the task specifically depends on Android, Flutter, Firebase, Google Cloud, Chrome extensions, Gradle, Kotlin, or Google APIs",
 	anthropic:
-		"Engineering systems — refactoring, debugging, architecture, UI, complex coding tasks, long context, migrations, iOS/macOS apps, DevOps, code quality",
+		"Complex engineering — choose when the task requires deep repository context, architecture, refactoring, migrations, complex debugging, complex UI workflows, or broad code quality changes",
 };
 
 export interface RouteSignal {

@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.7] - 2026-07-18
+
+### Added
+
+- Added built-in `openabcode` provider with hosted model catalog.
+
 ## [1.0.6] - 2026-07-16
 
 ## [1.0.5] - 2026-07-16

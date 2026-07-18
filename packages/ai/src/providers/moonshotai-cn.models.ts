@@ -178,9 +178,9 @@ export const MOONSHOTAI_CN_MODELS = {
 		reasoning: true,
 		input: ["text", "image"],
 		cost: {
-			input: 0,
-			output: 0,
-			cacheRead: 0,
+			input: 3,
+			output: 15,
+			cacheRead: 0.3,
 			cacheWrite: 0,
 		},
 		contextWindow: 1048576,

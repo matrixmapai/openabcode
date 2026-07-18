@@ -28,7 +28,6 @@ import { getAgentDir } from "../config.ts";
 import { stripJsonComments } from "../utils/json.ts";
 import { normalizePath } from "../utils/paths.ts";
 import type { AuthStatus, AuthStorage } from "./auth-storage.ts";
-import { registerOpenABCodeProvider } from "./openabcode-provider.ts";
 import { BUILT_IN_PROVIDER_DISPLAY_NAMES } from "./provider-display-names.ts";
 import {
 	clearConfigValueCache,
@@ -378,9 +377,7 @@ export class ModelRegistry {
 	}
 
 	static create(authStorage: AuthStorage, modelsJsonPath: string = join(getAgentDir(), "models.json")): ModelRegistry {
-		const registry = new ModelRegistry(authStorage, modelsJsonPath);
-		registerOpenABCodeProvider(registry);
-		return registry;
+		return new ModelRegistry(authStorage, modelsJsonPath);
 	}
 
 	static inMemory(authStorage: AuthStorage): ModelRegistry {
