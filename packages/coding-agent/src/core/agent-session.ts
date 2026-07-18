@@ -98,6 +98,7 @@ import {
 	pickRouteModel,
 	ROUTE_PROVIDER_CHOICES,
 	ROUTING_ENTRY_TYPE,
+	type RouterConfig,
 	type RoutingDecision,
 	type RoutingMethod,
 } from "./router.ts";
@@ -1613,10 +1614,14 @@ export class AgentSession {
 		}
 
 		const decisionID = `rtd_${randomUUID()}`;
-		const heuristic = classifyProviderHeuristic(
-			{ text, projectFiles },
-			this.settingsManager.getRouterHeuristicKeywords(),
-		);
+		const routerConfig: RouterConfig = {
+			keywords: this.settingsManager.getRouterHeuristicKeywords(),
+			rules: this.settingsManager.getRouterHeuristicRules(),
+			fileExtensions: this.settingsManager.getRouterHeuristicFileExtensions() as RouterConfig["fileExtensions"],
+			projectMarkers: this.settingsManager.getRouterHeuristicProjectMarkers() as RouterConfig["projectMarkers"],
+			defaultProvider: this.settingsManager.getRouterDefaultProvider() as ProviderChoice | undefined,
+		};
+		const heuristic = classifyProviderHeuristic({ text, projectFiles }, routerConfig);
 
 		let choice: ProviderChoice;
 		let method: RoutingMethod;
@@ -1645,6 +1650,7 @@ export class AgentSession {
 							: auth.headers,
 					env: auth.env,
 				},
+				routerConfig,
 			);
 			method = "classifier";
 			usedClassifier = true;

@@ -70,14 +70,24 @@ export interface RouterSettings {
 		anthropic?: string; // "provider/modelId" preferred for anthropic-routed tasks
 		openai?: string; // "provider/modelId" preferred for openai-routed tasks
 	};
-	heuristics?: {
-		// Extra keywords per provider that extend the built-in heuristic routing tables
-		keywords?: {
-			google?: string[];
-			anthropic?: string[];
-			openai?: string[];
-		};
+	// Per-provider keywords; replaces the built-in keyword table when set
+	keywords?: {
+		google?: string[];
+		anthropic?: string[];
+		openai?: string[];
 	};
+	// LLM classifier descriptions per provider; replaces the built-in rules when set
+	rules?: {
+		google?: string;
+		anthropic?: string;
+		openai?: string;
+	};
+	// File extension → provider mappings; replaces the built-in table when set
+	fileExtensions?: Record<string, string>;
+	// Project marker file → provider mappings; replaces the built-in table when set
+	projectMarkers?: Record<string, string>;
+	// Override the default fallback provider (default: "anthropic")
+	defaultProvider?: string;
 }
 
 export type TransportSetting = Transport;
@@ -813,8 +823,24 @@ export class SettingsManager {
 		return this.settings.router?.models ?? {};
 	}
 
-	getRouterHeuristicKeywords(): { google?: string[]; anthropic?: string[]; openai?: string[] } {
-		return this.settings.router?.heuristics?.keywords ?? {};
+	getRouterHeuristicKeywords(): { google?: string[]; anthropic?: string[]; openai?: string[] } | undefined {
+		return this.settings.router?.keywords;
+	}
+
+	getRouterHeuristicRules(): { google?: string; anthropic?: string; openai?: string } | undefined {
+		return this.settings.router?.rules;
+	}
+
+	getRouterHeuristicFileExtensions(): Record<string, string> | undefined {
+		return this.settings.router?.fileExtensions;
+	}
+
+	getRouterHeuristicProjectMarkers(): Record<string, string> | undefined {
+		return this.settings.router?.projectMarkers;
+	}
+
+	getRouterDefaultProvider(): string | undefined {
+		return this.settings.router?.defaultProvider;
 	}
 
 	getDefaultThinkingLevel(): ThinkingLevel | undefined {

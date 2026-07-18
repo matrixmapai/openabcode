@@ -558,5 +558,69 @@ describe("SettingsManager", () => {
 			expect(saved.defaultModel).toBe("claude-sonnet-4-6");
 			expect(saved.router).toEqual({ enabled: false, setupCompleted: true });
 		});
+
+		it("returns heuristic rules from settings", () => {
+			writeFileSync(
+				join(agentDir, "settings.json"),
+				JSON.stringify({
+					router: { rules: { openai: "Custom rule" } },
+				}),
+			);
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getRouterHeuristicRules()).toEqual({ openai: "Custom rule" });
+		});
+
+		it("returns undefined when no heuristic rules are configured", () => {
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getRouterHeuristicRules()).toBeUndefined();
+		});
+
+		it("returns heuristic file extensions from settings", () => {
+			writeFileSync(
+				join(agentDir, "settings.json"),
+				JSON.stringify({
+					router: { fileExtensions: { ".rs": "anthropic" } },
+				}),
+			);
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getRouterHeuristicFileExtensions()).toEqual({ ".rs": "anthropic" });
+		});
+
+		it("returns undefined when no file extensions are configured", () => {
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getRouterHeuristicFileExtensions()).toBeUndefined();
+		});
+
+		it("returns heuristic project markers from settings", () => {
+			writeFileSync(
+				join(agentDir, "settings.json"),
+				JSON.stringify({
+					router: { projectMarkers: { "Cargo.toml": "anthropic" } },
+				}),
+			);
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getRouterHeuristicProjectMarkers()).toEqual({ "Cargo.toml": "anthropic" });
+		});
+
+		it("returns default provider from settings", () => {
+			writeFileSync(
+				join(agentDir, "settings.json"),
+				JSON.stringify({
+					router: { defaultProvider: "anthropic" },
+				}),
+			);
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getRouterDefaultProvider()).toBe("anthropic");
+		});
+
+		it("returns undefined when no default provider is configured", () => {
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getRouterDefaultProvider()).toBeUndefined();
+		});
+
+		it("returns undefined for keywords when not configured", () => {
+			const manager = SettingsManager.create(projectDir, agentDir);
+			expect(manager.getRouterHeuristicKeywords()).toBeUndefined();
+		});
 	});
 });

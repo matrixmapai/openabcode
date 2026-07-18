@@ -119,16 +119,17 @@ describe("OpenABCode heuristic router", () => {
 		expect(result?.matched).toContain("project:pubspec.yaml");
 	});
 
-	it("classifies with low confidence on a single weak signal", () => {
-		const result = classifyProviderHeuristic({ text: "improve the algorithm here" });
-		expect(result?.choice).toBe("openai");
-		expect(result?.confidence).toBe("low");
+	it("returns undefined for default-provider environment signals (defers to classifier)", () => {
+		const result = classifyProviderHeuristic({
+			text: "update the application",
+			projectFiles: ["package.json", "tsconfig.json"],
+		});
+		expect(result).toBeUndefined();
 	});
 
-	it("matches Chinese keywords", () => {
-		const result = classifyProviderHeuristic({ text: "帮我重构这个模块的架构" });
-		expect(result?.choice).toBe("anthropic");
-		expect(result?.confidence).toBe("high");
+	it("does not match Chinese text against ASCII-only keywords", () => {
+		// Chinese text falls through to the LLM classifier when no Chinese keywords are configured
+		expect(classifyProviderHeuristic({ text: "帮我重构这个模块的架构" })).toBeUndefined();
 	});
 
 	it("uses word boundaries for ASCII keywords", () => {
@@ -138,11 +139,11 @@ describe("OpenABCode heuristic router", () => {
 
 	it("scores file extensions and project bundle markers", () => {
 		const result = classifyProviderHeuristic({
-			text: "update the view",
-			fileNames: ["Sources/App/ContentView.swift"],
-			projectFiles: ["Package.swift", "MyApp.xcodeproj"],
+			text: "update the screen",
+			fileNames: ["lib/main.dart"],
+			projectFiles: ["pubspec.yaml", "README.md"],
 		});
-		expect(result?.choice).toBe("anthropic");
+		expect(result?.choice).toBe("google");
 		expect(result?.confidence).toBe("high");
 	});
 
@@ -152,15 +153,60 @@ describe("OpenABCode heuristic router", () => {
 		expect(result).toBeUndefined();
 	});
 
-	it("extends the built-in tables with custom keywords from settings", () => {
-		const withoutCustom = classifyProviderHeuristic({ text: "tune the acme-widget renderer" });
-		expect(withoutCustom).toBeUndefined();
+	it("replaces the built-in keyword table when config.keywords is set", () => {
+		// Explicit task keywords remain actionable even when they target the default provider.
+		const withBuiltin = classifyProviderHeuristic({ text: "refactor the auth module" });
+		expect(withBuiltin?.choice).toBe("anthropic");
+
+		// Moving "refactor" to google (non-default) makes it a distinctive signal
+		const result = classifyProviderHeuristic(
+			{ text: "refactor the auth module" },
+			{ keywords: { google: ["refactor"], anthropic: [], openai: [] } },
+		);
+		expect(result?.choice).toBe("google");
+	});
+
+	it("replaces the built-in file extension table when config.fileExtensions is set", () => {
+		// .dart is normally google (non-default); custom table maps only .rs to google
+		const withBuiltin = classifyProviderHeuristic({
+			text: "update the screen",
+			fileNames: ["main.dart"],
+		});
+		expect(withBuiltin?.choice).toBe("google");
 
 		const result = classifyProviderHeuristic(
-			{ text: "tune the acme-widget renderer and its acme runtime" },
-			{ anthropic: ["acme-widget", "acme runtime"] },
+			{ text: "update the screen", fileNames: ["main.dart"] },
+			{ fileExtensions: { ".rs": "google" } },
 		);
+		// .dart no longer matches anything in the custom table
+		expect(result).toBeUndefined();
+	});
+
+	it("replaces the built-in project markers table when config.projectMarkers is set", () => {
+		// pubspec.yaml is normally google (non-default)
+		const withBuiltin = classifyProviderHeuristic({
+			text: "update the config",
+			projectFiles: ["pubspec.yaml"],
+		});
+		expect(withBuiltin?.choice).toBe("google");
+
+		const result = classifyProviderHeuristic(
+			{ text: "update the config", projectFiles: ["pubspec.yaml"] },
+			{ projectMarkers: { "go.mod": "openai" } },
+		);
+		expect(result).toBeUndefined();
+	});
+
+	it("allows explicit task keywords to select the default provider", () => {
+		const result = classifyProviderHeuristic({ text: "debug the module" });
 		expect(result?.choice).toBe("anthropic");
 		expect(result?.confidence).toBe("high");
+	});
+
+	it("allows default-provider signals when defaultProvider is overridden", () => {
+		// When defaultProvider is changed to google, anthropic signals become distinctive
+		const result = classifyProviderHeuristic({ text: "debug the handler" }, { defaultProvider: "google" });
+		expect(result?.choice).toBe("anthropic");
+		expect(result?.confidence).toBe("low");
 	});
 });
