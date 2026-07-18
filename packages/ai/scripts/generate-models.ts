@@ -2265,10 +2265,13 @@ async function generateModels() {
 
 	// Aggregator
 	let output = generatedHeader;
+	// Include the hand-written openabcode catalog (not fetched from an API)
+	output += `import { OPENABCODE_MODELS } from "./providers/openabcode.ts";\n`;
 	for (const providerId of sortedProviderIds) {
 		output += `import { ${catalogConstName(providerId)} } from "./providers/${providerId}.models.ts";\n`;
 	}
 	output += `\nexport const MODELS = {\n`;
+	output += `\t"openabcode": OPENABCODE_MODELS,\n`;
 	for (const providerId of sortedProviderIds) {
 		output += `\t${JSON.stringify(providerId)}: ${catalogConstName(providerId)},\n`;
 	}

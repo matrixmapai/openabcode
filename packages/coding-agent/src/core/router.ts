@@ -8,8 +8,10 @@
 
 import type { Api, Model, SimpleStreamOptions } from "@openabcode/ai";
 import { completeSimple } from "@openabcode/ai/compat";
-import { OPENABCODE_PROVIDER_ID as OPENABCODE_PROVIDER } from "@openabcode/ai/providers/openabcode";
-import { OPENABCODE_HOSTED_UPSTREAM } from "@openabcode/ai/providers/openabcode.models";
+import {
+	OPENABCODE_HOSTED_UPSTREAM,
+	OPENABCODE_PROVIDER_ID as OPENABCODE_PROVIDER,
+} from "@openabcode/ai/providers/openabcode";
 
 export const ROUTE_PROVIDER_CHOICES = ["openai", "google", "anthropic"] as const;
 export type ProviderChoice = (typeof ROUTE_PROVIDER_CHOICES)[number];
