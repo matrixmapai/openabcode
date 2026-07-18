@@ -134,14 +134,14 @@
     <animate attributeName="opacity" dur="3.51s" begin="0.9s" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;0.333;0.334;1"/>
   </text>
   <text class="routing-moving-label routing-route-2" aria-hidden="true" text-anchor="middle" dy="-9" opacity="0">
-   Complex engineering
+   General development
     <animateMotion dur="3.51s" begin="2.07s" repeatCount="indefinite" keyPoints="0;1;1" keyTimes="0;0.333333;1">
       <mpath href="#route-claude"/>
     </animateMotion>
     <animate attributeName="opacity" dur="3.51s" begin="2.07s" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;0.333;0.334;1"/>
   </text>
   <text class="routing-moving-label routing-route-3" aria-hidden="true" text-anchor="middle" dy="-9" opacity="0">
-    Genaral coding
+    Test and automation
     <animateMotion dur="3.51s" begin="3.24s" repeatCount="indefinite" keyPoints="0;1;1" keyTimes="0;0.333333;1">
       <mpath href="#route-chatgpt"/>
     </animateMotion>
