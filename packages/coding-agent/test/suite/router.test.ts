@@ -119,9 +119,11 @@ describe("OpenABCode heuristic router", () => {
 		expect(result?.matched).toContain("project:pubspec.yaml");
 	});
 
-	it("returns undefined for default-provider signals (defers to classifier)", () => {
-		// "refactor" matches anthropic, but anthropic is now the default — not distinctive
-		const result = classifyProviderHeuristic({ text: "refactor the auth module" });
+	it("returns undefined for default-provider environment signals (defers to classifier)", () => {
+		const result = classifyProviderHeuristic({
+			text: "update the application",
+			projectFiles: ["package.json", "tsconfig.json"],
+		});
 		expect(result).toBeUndefined();
 	});
 
@@ -152,9 +154,9 @@ describe("OpenABCode heuristic router", () => {
 	});
 
 	it("replaces the built-in keyword table when config.keywords is set", () => {
-		// "refactor" is a built-in anthropic keyword but anthropic is default so heuristic ignores it
+		// Explicit task keywords remain actionable even when they target the default provider.
 		const withBuiltin = classifyProviderHeuristic({ text: "refactor the auth module" });
-		expect(withBuiltin).toBeUndefined();
+		expect(withBuiltin?.choice).toBe("anthropic");
 
 		// Moving "refactor" to google (non-default) makes it a distinctive signal
 		const result = classifyProviderHeuristic(
@@ -195,10 +197,10 @@ describe("OpenABCode heuristic router", () => {
 		expect(result).toBeUndefined();
 	});
 
-	it("returns undefined for default-provider-only signals (defers to classifier)", () => {
-		// anthropic is now the default; its signals should not short-circuit
+	it("allows explicit task keywords to select the default provider", () => {
 		const result = classifyProviderHeuristic({ text: "debug the module" });
-		expect(result).toBeUndefined();
+		expect(result?.choice).toBe("anthropic");
+		expect(result?.confidence).toBe("high");
 	});
 
 	it("allows default-provider signals when defaultProvider is overridden", () => {

@@ -298,11 +298,12 @@ export function classifyProviderHeuristic(input: RouteSignal, config?: RouterCon
 	const [top, runnerUp] = scores;
 	if (top.score === 0 || top.score === runnerUp.score) return undefined;
 
-	// Signals pointing to the default provider are not distinctive — they just
-	// confirm "this is a normal project" which is already the fallback. Only
-	// non-default signals justify short-circuiting the LLM classifier.
+	// Project and file signals pointing to the default provider merely confirm
+	// the ambient ecosystem, so let the classifier evaluate task complexity.
+	// Explicit task keywords remain distinctive and may override sticky routing.
 	const effectiveDefault = config?.defaultProvider ?? DEFAULT_PROVIDER_CHOICE;
-	if (top.provider === effectiveDefault) return undefined;
+	const hasTaskKeyword = [...matched[top.provider]].some((signal) => signal.startsWith("keyword:"));
+	if (top.provider === effectiveDefault && !hasTaskKeyword) return undefined;
 
 	return {
 		choice: top.provider,
