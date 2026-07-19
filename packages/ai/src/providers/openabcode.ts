@@ -55,7 +55,7 @@ export const OPENABCODE_MODELS: Record<string, Model<"openai-completions">> = Ob
 			id,
 			{
 				id,
-				name: `${id} (hosted)`,
+				name: `${id} (OpenABCode)`,
 				api: "openai-completions",
 				provider: "openabcode",
 				baseUrl,

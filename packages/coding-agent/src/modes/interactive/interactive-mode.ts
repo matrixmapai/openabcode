@@ -893,7 +893,12 @@ export class InteractiveMode {
 		}
 
 		if (modelFallbackMessage) {
-			this.showWarning(modelFallbackMessage);
+			// Suppress the "no models" warning when first-run onboarding will handle it
+			const isFirstRun =
+				!initialMessage && !initialMessages?.length && !this.settingsManager.getRouterSetupCompleted();
+			if (!isFirstRun) {
+				this.showWarning(modelFallbackMessage);
+			}
 		}
 
 		void this.maybeWarnAboutAnthropicSubscriptionAuth();
@@ -920,7 +925,12 @@ export class InteractiveMode {
 		}
 
 		if (!initialMessage && !initialMessages?.length && !this.settingsManager.getRouterSetupCompleted()) {
-			this.showRouteSelector("Route setup");
+			const candidates = await this.getModelCandidates();
+			if (candidates.length === 0) {
+				this.showFirstRunOnboarding();
+			} else {
+				this.showRouteSelector("Route setup");
+			}
 		}
 
 		// Main interactive loop
@@ -4382,8 +4392,8 @@ export class InteractiveMode {
 	private showFixedProviderSelector(models: Model<any>[], onBack: () => void): void {
 		const providers = [...new Set(models.map((model) => model.provider))];
 		if (providers.length === 0) {
-			this.showError("No configured providers have an available model. Use /login first.");
-			onBack();
+			this.showStatus("No configured providers. Opening login...");
+			void this.handleLoginCommand();
 			return;
 		}
 		this.showSelector((done) => {
@@ -5759,6 +5769,11 @@ export class InteractiveMode {
 		});
 	}
 
+	private showFirstRunOnboarding(): void {
+		this.showStatus("Welcome! Configure a provider to get started.");
+		void this.handleLoginCommand();
+	}
+
 	private showRouteSelector(title = "Route"): void {
 		this.showSelector((done) => {
 			const selector = new ChoiceSelectorComponent(
@@ -5790,8 +5805,13 @@ export class InteractiveMode {
 			this.session.setRouteMode("manual");
 			this.settingsManager.setRouterEnabledAndSetupCompleted(false);
 			this.footer.invalidate();
-			this.showWarning("Route classifier model is missing or unavailable. Run /route-model.");
-			this.showStatus("Route off");
+			if (models.length === 0) {
+				this.showStatus("No configured providers. Opening login...");
+				void this.handleLoginCommand();
+			} else {
+				this.showWarning("Route classifier model is missing or unavailable. Run /route-model.");
+				this.showStatus("Route off");
+			}
 			return;
 		}
 		const configured = this.settingsManager.getRouterModels();
