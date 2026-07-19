@@ -76,7 +76,7 @@
 		"api"
 	],
 	"author": "OpenABCode Team",
-	"license": "AGPL-3.0-or-later",
+	"license": "AGPL-3.0",
 	"repository": {
 		"type": "git",
 		"url": "git+https://github.com/matrixmapai/openabcode.git",

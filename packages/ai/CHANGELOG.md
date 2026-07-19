@@ -26,7 +26,7 @@
 
 ### Changed
 
-- Changed the package license from MIT to AGPL-3.0-or-later.
+- Changed the package license from MIT to AGPL-3.0.
 
 ## [1.0.0] - 2026-07-13
 

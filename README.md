@@ -152,6 +152,6 @@ We treat npm dependency changes as reviewed code changes.
 
 ## License
 
-AGPL-3.0-or-later
+AGPL-3.0
 
 Portions derived from [Pi](https://github.com/earendil-works/pi) remain licensed under the MIT License. See [NOTICE](NOTICE) for attribution.
