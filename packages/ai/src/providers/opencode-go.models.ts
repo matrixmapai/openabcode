@@ -82,10 +82,9 @@ export const OPENCODE_GO_MODELS = {
 	"grok-4.5": {
 		id: "grok-4.5",
 		name: "Grok 4.5",
-		api: "openai-completions",
+		api: "openai-responses",
 		provider: "opencode-go",
 		baseUrl: "https://opencode.ai/zen/go/v1",
-		compat: {"supportsStore":false,"supportsDeveloperRole":false,"maxTokensField":"max_tokens"},
 		reasoning: true,
 		input: ["text", "image"],
 		cost: {
@@ -96,7 +95,7 @@ export const OPENCODE_GO_MODELS = {
 		},
 		contextWindow: 500000,
 		maxTokens: 500000,
-	} satisfies Model<"openai-completions">,
+	} satisfies Model<"openai-responses">,
 	"kimi-k2.6": {
 		id: "kimi-k2.6",
 		name: "Kimi K2.6",

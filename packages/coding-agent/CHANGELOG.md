@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+## [1.0.9] - 2026-07-19
+
+### Changed
+
+- Improved first-run onboarding: detect when no providers are configured and guide users to `/login` before showing Route setup, instead of showing errors on both Route on/off paths.
+- When selecting Route on/off with no configured providers, automatically open `/login` instead of showing a dead-end error.
+- Suppress "No models available" warning during first-run onboarding since the login flow handles it.
+
 ## [1.0.8] - 2026-07-19
 
 ### Fixed

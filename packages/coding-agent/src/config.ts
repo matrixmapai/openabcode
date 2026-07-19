@@ -486,8 +486,8 @@ try {
 
 const piConfigName: string | undefined = pkg.piConfig?.name;
 export const PACKAGE_NAME: string = pkg.name || "@openabcode/coding-agent";
-export const APP_NAME: string = piConfigName || "pi";
-export const APP_TITLE: string = piConfigName ? APP_NAME : "π";
+export const APP_NAME: string = piConfigName || "openabcode";
+export const APP_TITLE: string = piConfigName ? APP_NAME : "openabcode";
 export const CONFIG_DIR_NAME: string = pkg.piConfig?.configDir || ".openabcode";
 export const VERSION: string = pkg.version || "0.0.0";
 
