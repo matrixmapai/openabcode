@@ -19,6 +19,7 @@ export const BUILT_IN_PROVIDER_DISPLAY_NAMES: Record<string, string> = {
 	moonshotai: "Moonshot AI",
 	"moonshotai-cn": "Moonshot AI (China)",
 	nvidia: "NVIDIA NIM",
+	openabcode: "OpenABCode",
 	opencode: "OpenCode Zen",
 	"opencode-go": "OpenCode Go",
 	openai: "OpenAI",
