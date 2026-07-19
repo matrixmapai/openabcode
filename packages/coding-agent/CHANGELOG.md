@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.0.8] - 2026-07-19
+
+### Fixed
+
+- Fixed OpenABCode provider missing from `/login` provider list by adding it to `BUILT_IN_PROVIDER_DISPLAY_NAMES`.
+
 ## [1.0.7] - 2026-07-18
 
 ### Changed
