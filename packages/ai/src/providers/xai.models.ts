@@ -106,7 +106,7 @@ export const XAI_MODELS = {
 		cost: {
 			input: 2,
 			output: 6,
-			cacheRead: 0.5,
+			cacheRead: 0.3,
 			cacheWrite: 0,
 		},
 		contextWindow: 500000,

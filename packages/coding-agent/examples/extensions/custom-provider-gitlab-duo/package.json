@@ -1,7 +1,7 @@
 {
   "name": "openabcode-extension-custom-provider-gitlab-duo",
   "private": true,
-  "version": "1.0.7",
+  "version": "1.0.8",
   "type": "module",
   "scripts": {
     "clean": "echo 'nothing to clean'",
