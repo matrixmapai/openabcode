@@ -53,9 +53,9 @@
 		"node": ">=22.19.0"
 	},
 	"devDependencies": {
-		"@types/node": "24.12.4",
-		"@vitest/coverage-v8": "4.1.9",
-		"typescript": "5.9.3",
-		"vitest": "4.1.9"
+		"@types/node": "26.1.1",
+		"@vitest/coverage-v8": "4.1.10",
+		"typescript": "7.0.2",
+		"vitest": "4.1.10"
 	}
 }
