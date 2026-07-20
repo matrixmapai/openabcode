@@ -8,7 +8,7 @@
   <a href="https://www.npmjs.com/package/@openabcode/coding-agent"><img alt="npm" src="https://img.shields.io/npm/v/@openabcode/coding-agent?style=flat-square" /></a>
 </p>
 
-OpenABCode is an LLM-routing coding agent that dynamically routes tasks to the best-suited models:
+**OpenABCode** is an LLM-routing coding agent that dynamically routes tasks to the best-suited models:
 
 - Google ecosystem-centric tasks are routed to Gemini.
 
