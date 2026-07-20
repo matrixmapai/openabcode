@@ -8,11 +8,13 @@
   <a href="https://www.npmjs.com/package/@openabcode/coding-agent"><img alt="npm" src="https://img.shields.io/npm/v/@openabcode/coding-agent?style=flat-square" /></a>
 </p>
 
-# OpenABCode
+OpenABCode is an LLM-routing coding agent that dynamically routes tasks to the best-suited models:
 
-OpenABCode is a coding agent with automatic task routing. It classifies each task, selects the optimal model (like ChatGPT, Claude, or Gemini) for it, and runs a unified agent-and-tool loop with the chosen provider.
+- Google ecosystem-centric tasks are routed to Gemini.
 
-Use your own provider credentials or the OpenABCode gateway. The CLI also supports fixed-model operation, custom providers, extensions, skills, prompt templates, and themes.
+- Primary code development is routed to Claude.
+
+- Testing and automation scripts are routed to ChatGPT.
 
 <p align="center">
   <a href="https://openabcode.com">
