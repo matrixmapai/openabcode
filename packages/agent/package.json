@@ -31,8 +31,8 @@
 	},
 	"dependencies": {
 		"@openabcode/ai": "^1.0.9",
-		"ignore": "7.0.5",
-		"typebox": "1.1.38",
+		"ignore": "7.0.6",
+		"typebox": "1.3.6",
 		"yaml": "2.9.0"
 	},
 	"keywords": [
