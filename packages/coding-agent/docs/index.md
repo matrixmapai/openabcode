@@ -1,6 +1,12 @@
 # Overview
 
-OpenABCode is a minimal terminal coding harness. It is designed to stay small at the core while being extended through TypeScript extensions, skills, prompt templates, themes, and openabcode packages.
+**OpenABCode** is an LLM-routing coding agent that dynamically routes tasks to the best-suited models:
+
+- Google ecosystem-centric tasks are routed to Gemini.
+
+- Primary code development is routed to Claude.
+
+- Reviewing code, testing and automation scripts are routed to ChatGPT.
 
 ## Quick start
 
