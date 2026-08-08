@@ -10,11 +10,11 @@
 
 **OpenABCode** is an LLM-routing coding agent that dynamically routes tasks to the best-suited models:
 
-- Google ecosystem-centric tasks are routed to Gemini.
+- Google ecosystem–related coding tasks are routed to Gemini.
 
-- Primary code development is routed to Claude.
+- Code review and testing are routed to ChatGPT.
 
-- Testing and automation scripts are routed to ChatGPT.
+- General coding tasks are routed to Claude.
 
 <p align="center">
   <a href="https://openabcode.com">
