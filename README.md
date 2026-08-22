@@ -18,7 +18,7 @@
 
 <p align="center">
   <a href="https://openabcode.com">
-    <img src="./assets/routing-demo.svg" width="900">
+    <img src="./assets/routing-flow.svg" width="900">
   </a>
 </p>
 
