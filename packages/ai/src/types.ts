@@ -526,6 +526,8 @@ export interface OpenAIResponsesCompat {
 	sendSessionIdHeader?: boolean;
 	/** Whether the provider supports `prompt_cache_retention: "24h"`. Default: true. */
 	supportsLongCacheRetention?: boolean;
+	/** Whether the provider accepts the `reasoning.effort` request field. Default: true. */
+	supportsReasoningEffort?: boolean;
 }
 
 /** Compatibility settings for Anthropic Messages-compatible APIs. */
