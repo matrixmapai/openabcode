@@ -99,7 +99,13 @@ function isPublished(name, version) {
 }
 
 function ensurePublicAccess(name) {
-	run("npm", ["access", "set", "status=public", name]);
+	// Best-effort: npm publish --access public already makes the package public,
+	// and npm now returns E403 for access management with automation tokens.
+	try {
+		run("npm", ["access", "set", "status=public", name]);
+	} catch (error) {
+		console.warn(`Warning: could not set public access for ${name} (continuing): ${error.message.split("\n")[0]}`);
+	}
 }
 
 const packageVersions = new Map();
