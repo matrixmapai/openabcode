@@ -1771,7 +1771,7 @@ describe("ModelRegistry", () => {
 					refresh: "github-access-token",
 					access: "tid=test;exp=9999999999;proxy-ep=proxy.individual.githubcopilot.com;",
 					expires: Date.now() + 60_000,
-					availableModelIds: ["gpt-4.1"],
+					availableModelIds: ["gpt-5.4"],
 				});
 
 				const registry = ModelRegistry.create(authStorage, modelsJsonPath);
@@ -1781,7 +1781,7 @@ describe("ModelRegistry", () => {
 						.getAvailable()
 						.filter((m) => m.provider === "github-copilot")
 						.map((m) => m.id),
-				).toEqual(["gpt-4.1"]);
+				).toEqual(["gpt-5.4"]);
 			});
 
 			test("getApiKeyAndHeaders resolves authHeader on every request", async () => {
