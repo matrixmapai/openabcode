@@ -67,35 +67,36 @@ Route requires one classifier model and one authenticated execution model for ea
 
 1. Run `/login` and configure the providers you want to use.
 2. Run `/route-model` and select the authenticated model that will classify tasks. This does not change the active or default execution model.
-3. Run `/model` and select an OpenAI-family model, a Google-family model, and an Anthropic-family model. Each selection is saved to its corresponding Route family while preserving Route mode.
+3. Run `/model` and pick one specific model per family — e.g. `gpt-5.5` for OpenAI, `gemini-3.5-flash` for Google, `claude-opus-4.8` for Anthropic. Each selection is saved to its corresponding Route family while preserving Route mode, and Route always executes tasks with the exact model picked for the chosen family.
 4. Run `/route` and select `on`.
 
-`/route` does not accept `on`, `off`, `auto`, or `manual` arguments; it opens the on/off selector. If the classifier or any execution family is missing, unavailable, or unauthenticated, OpenABCode keeps Route off and reports the missing configuration.
+`/route` does not accept `on`, `off`, `auto`, or `manual` arguments; it opens the on/off selector. Route requires the classifier plus at least two configured execution families. With one family missing, Route enables in degraded mode and routes between the available families; with fewer than two, OpenABCode keeps Route off and reports the missing configuration.
 
 Selecting `off` opens the fixed-model flow. The selected fixed model becomes the active default and automatic routing is disabled.
 
 ### Per-Prompt Routing
 
-For each prompt, OpenABCode:
+For each prompt, OpenABCode picks a family through a three-stage pipeline:
 
-1. Sends the task text and up to 30 project-root filenames to the configured classifier model.
-2. Asks the classifier to return exactly one family: `openai`, `google`, or `anthropic`.
-3. Selects the configured model for that family.
-4. Switches the active agent model when needed, then runs the prompt through the normal agent and tool loop.
+1. **Heuristic** (zero-cost): keywords in the prompt, file extensions, and project marker files (collected once per session from the project root and first-level subdirectories). Multiple agreeing signals give high confidence and decide immediately.
+2. **Sticky**: without a high-confidence signal, the previous choice is reused.
+3. **Classifier**: the configured classifier model is called on the first routed turn, after two consecutive low-confidence signals against the sticky choice, or after ten unvalidated sticky turns.
 
-The classifier request has a 60-second timeout. A timeout, provider error, aborted response, or invalid classifier output falls back to the OpenAI family.
+OpenABCode then selects the configured model for that family and switches the active agent model when needed before running the prompt through the normal agent and tool loop.
+
+The classifier request has a 60-second timeout. A timeout, provider error, aborted response, or invalid classifier output falls back to the default family (`anthropic` unless overridden via `router.defaultProvider`, or the first available family in degraded mode).
 
 The classifier can use a direct provider, OpenRouter, or the OpenABCode gateway. For example, `openabcode/gemini-3.1-flash-lite` is registered locally under the `openabcode` provider and routed by the gateway to the Google upstream provider.
 
 ### Footer and Audit Records
 
-When Route is on, the footer shows the three configured execution models:
+When Route is on, the footer shows the configured execution models:
 
 ```text
 Route · gpt-5.5 · gemini-3.5-flash · claude-haiku-4.8
 ```
 
-These are the available Route choices, not the result of the latest classification. Every completed classification is persisted in the session JSONL as an `openabcode-routing` custom entry, including the classifier model, selected family, execution model, previous model, and timestamp.
+These are the available Route choices, not the result of the latest classification. Every completed classification is persisted in the session JSONL as an `openabcode-routing` custom entry, including the routing method (`heuristic`, `sticky`, or `classifier`), matched signals, classifier model (when used), selected family, execution model, previous model, and timestamp. Manually switching to a different family right after an auto-routed turn is recorded as an `openabcode-routing-feedback` entry, and Route resumes from that family when re-enabled.
 
 To inspect recent routing decisions:
 
@@ -111,6 +112,7 @@ Example decision:
 ```json
 {
 	"provider": "google",
+	"method": "classifier",
 	"classifierModel": {
 		"provider": "openabcode",
 		"id": "gemini-3.1-flash-lite"

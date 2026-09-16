@@ -135,16 +135,18 @@ Configure Route in the TUI:
 
 1. Run `/login` and configure the providers you want to use.
 2. Run `/route-model` and select the authenticated model that classifies tasks. This does not change the active execution model.
-3. Run `/model` and select one OpenAI-family model, one Google-family model, and one Anthropic-family model. Each selection is saved to its Route family.
+3. Run `/model` and pick one specific model per family — e.g. `gpt-5.5` for OpenAI, `gemini-3.5-flash` for Google, `claude-opus-4.8` for Anthropic. Each selection is saved to its Route family, and Route always executes tasks with the exact model picked for the chosen family.
 4. Run `/route` and select `on`.
 
-When Route is on, the footer shows the three configured execution models:
+At least two configured families are required. With one family missing, Route enables in degraded mode and routes between the available families only.
+
+When Route is on, the footer shows the configured execution models:
 
 ```text
 Route · gpt-5.5 · gemini-3.5-flash · claude-opus-4.8
 ```
 
-These are the available Route choices, not the latest classification result. Every completed classification is persisted in the session JSONL as an `openabcode-routing` entry with the classifier model, selected family, execution model, previous model, and timestamp.
+These are the available Route choices, not the latest classification result. Every completed classification is persisted in the session JSONL as an `openabcode-routing` entry with the routing method (heuristic, sticky, or classifier), matched signals, selected family, execution model, previous model, and timestamp. Manually switching to a different family right after an auto-routed turn is recorded as an `openabcode-routing-feedback` entry, and Route resumes from that family when re-enabled.
 
 Route can use direct providers, OpenRouter, or the OpenABCode gateway. For example, `openabcode/gemini-3.1-flash-lite` is registered locally under the `openabcode` provider and routed by the gateway to Google's upstream provider.
 

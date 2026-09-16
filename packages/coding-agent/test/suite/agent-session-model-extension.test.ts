@@ -186,18 +186,307 @@ describe("AgentSession model and extension characterization", () => {
 		expect(harness.session.model?.id).toBe("gemini-route");
 
 		// Weak signal sticks with the previous choice.
-		await maybeRoute("debug that screen");
+		await maybeRoute("continue polishing that screen");
 		expect(harness.session.model?.id).toBe("gemini-route");
 
-		// Conflicting high-confidence heuristic re-routes.
-		await maybeRoute("refactor the SwiftUI architecture of the iOS companion app");
-		expect(harness.session.model?.id).toBe("claude-route");
+		// A single default-provider dissent is capped at low confidence and sticks.
+		await maybeRoute("refactor the architecture of that screen");
+		expect(harness.session.model?.id).toBe("gemini-route");
+
+		// Conflicting high-confidence heuristic (non-default provider) re-routes.
+		await maybeRoute("write unit tests and wire up the ci/cd pipeline");
+		expect(harness.session.model?.id).toBe("gpt-route");
 
 		const methods = harness.sessionManager
 			.getEntries()
 			.filter((entry): entry is CustomEntry => entry.type === "custom" && entry.customType === "openabcode-routing")
 			.map((entry) => (entry.data as { method?: string }).method);
-		expect(methods).toEqual(["heuristic", "sticky", "heuristic"]);
+		expect(methods).toEqual(["heuristic", "sticky", "sticky", "heuristic"]);
+		expect(harness.getPendingResponseCount()).toBe(0);
+	});
+
+	it("reclassifies after consecutive low-confidence dissents against the sticky choice", async () => {
+		const harness = await createHarness({ models: [{ id: "classifier", name: "Classifier" }] });
+		harnesses.push(harness);
+		const classifier = harness.getModel("classifier")!;
+
+		for (const [provider, id] of [
+			["openai", "gpt-route"],
+			["google", "gemini-route"],
+			["anthropic", "claude-route"],
+		] as const) {
+			harness.authStorage.setRuntimeApiKey(provider, `${provider}-key`);
+			harness.session.modelRegistry.registerProvider(provider, {
+				baseUrl: classifier.baseUrl,
+				apiKey: `${provider}-key`,
+				api: classifier.api,
+				models: [
+					{
+						id,
+						name: id,
+						reasoning: false,
+						input: ["text"],
+						cost: classifier.cost,
+						contextWindow: classifier.contextWindow,
+						maxTokens: classifier.maxTokens,
+					},
+				],
+			});
+			harness.settingsManager.setRouterModel(provider, `${provider}/${id}`);
+		}
+		harness.settingsManager.setRouterClassifierModel(classifier.provider, classifier.id);
+		harness.session.setRouteMode("auto");
+
+		const maybeRoute = (
+			harness.session as unknown as { _maybeRouteModel(text: string): Promise<void> }
+		)._maybeRouteModel.bind(harness.session);
+
+		await maybeRoute("add a Flutter screen to the Android app");
+		expect(harness.session.model?.id).toBe("gemini-route");
+
+		// First low-confidence openai dissent sticks.
+		await maybeRoute("tweak the algorithm");
+		expect(harness.session.model?.id).toBe("gemini-route");
+
+		// Second consecutive dissent triggers re-classification.
+		harness.setResponses([fauxAssistantMessage("openai")]);
+		await maybeRoute("optimize the algorithm further");
+		expect(harness.session.model?.id).toBe("gpt-route");
+
+		const methods = harness.sessionManager
+			.getEntries()
+			.filter((entry): entry is CustomEntry => entry.type === "custom" && entry.customType === "openabcode-routing")
+			.map((entry) => (entry.data as { method?: string }).method);
+		expect(methods).toEqual(["heuristic", "sticky", "classifier"]);
+		expect(harness.getPendingResponseCount()).toBe(0);
+	});
+
+	it("revalidates a long-lived sticky choice with the classifier", async () => {
+		const harness = await createHarness({ models: [{ id: "classifier", name: "Classifier" }] });
+		harnesses.push(harness);
+		const classifier = harness.getModel("classifier")!;
+
+		for (const [provider, id] of [
+			["openai", "gpt-route"],
+			["google", "gemini-route"],
+			["anthropic", "claude-route"],
+		] as const) {
+			harness.authStorage.setRuntimeApiKey(provider, `${provider}-key`);
+			harness.session.modelRegistry.registerProvider(provider, {
+				baseUrl: classifier.baseUrl,
+				apiKey: `${provider}-key`,
+				api: classifier.api,
+				models: [
+					{
+						id,
+						name: id,
+						reasoning: false,
+						input: ["text"],
+						cost: classifier.cost,
+						contextWindow: classifier.contextWindow,
+						maxTokens: classifier.maxTokens,
+					},
+				],
+			});
+			harness.settingsManager.setRouterModel(provider, `${provider}/${id}`);
+		}
+		harness.settingsManager.setRouterClassifierModel(classifier.provider, classifier.id);
+		harness.session.setRouteMode("auto");
+
+		const maybeRoute = (
+			harness.session as unknown as { _maybeRouteModel(text: string): Promise<void> }
+		)._maybeRouteModel.bind(harness.session);
+
+		await maybeRoute("add a Flutter screen to the Android app");
+		// Ten signal-free turns ride the sticky choice.
+		for (let turn = 0; turn < 10; turn++) {
+			await maybeRoute("continue with the next step");
+		}
+		expect(harness.session.model?.id).toBe("gemini-route");
+
+		// The eleventh signal-free turn revalidates via the classifier.
+		harness.setResponses([fauxAssistantMessage("google")]);
+		await maybeRoute("continue with the next step");
+		expect(harness.session.model?.id).toBe("gemini-route");
+
+		const methods = harness.sessionManager
+			.getEntries()
+			.filter((entry): entry is CustomEntry => entry.type === "custom" && entry.customType === "openabcode-routing")
+			.map((entry) => (entry.data as { method?: string }).method);
+		expect(methods).toEqual(["heuristic", ...Array(10).fill("sticky"), "classifier"]);
+		// Revalidation confirming the same choice must not emit a model change.
+		expect(harness.sessionManager.getEntries().filter((entry) => entry.type === "model_change")).toHaveLength(1);
+		expect(harness.getPendingResponseCount()).toBe(0);
+	});
+
+	it("records a manual override as veto feedback and resumes from the user's family", async () => {
+		const harness = await createHarness({ models: [{ id: "classifier", name: "Classifier" }] });
+		harnesses.push(harness);
+		const classifier = harness.getModel("classifier")!;
+
+		for (const [provider, id] of [
+			["openai", "gpt-route"],
+			["google", "gemini-route"],
+			["anthropic", "claude-route"],
+		] as const) {
+			harness.authStorage.setRuntimeApiKey(provider, `${provider}-key`);
+			harness.session.modelRegistry.registerProvider(provider, {
+				baseUrl: classifier.baseUrl,
+				apiKey: `${provider}-key`,
+				api: classifier.api,
+				models: [
+					{
+						id,
+						name: id,
+						reasoning: false,
+						input: ["text"],
+						cost: classifier.cost,
+						contextWindow: classifier.contextWindow,
+						maxTokens: classifier.maxTokens,
+					},
+				],
+			});
+			harness.settingsManager.setRouterModel(provider, `${provider}/${id}`);
+		}
+		harness.settingsManager.setRouterClassifierModel(classifier.provider, classifier.id);
+		harness.session.setRouteMode("auto");
+
+		const maybeRoute = (
+			harness.session as unknown as { _maybeRouteModel(text: string): Promise<void> }
+		)._maybeRouteModel.bind(harness.session);
+
+		await maybeRoute("add a Flutter screen to the Android app");
+		expect(harness.session.model?.id).toBe("gemini-route");
+
+		// Manual switch to a different family right after auto-routing is a veto.
+		const claude = harness.session.modelRegistry.getAvailable().find((m) => m.id === "claude-route")!;
+		await harness.session.setModel(claude);
+		expect(harness.session.routeMode).toBe("manual");
+
+		const feedback = harness.sessionManager
+			.getEntries()
+			.filter(
+				(entry): entry is CustomEntry =>
+					entry.type === "custom" && entry.customType === "openabcode-routing-feedback",
+			);
+		expect(feedback).toHaveLength(1);
+		expect(feedback[0]?.data).toMatchObject({
+			vetoedDecisionId: expect.stringMatching(/^rtd_/),
+			vetoedProvider: "google",
+			chosenProvider: "anthropic",
+		});
+
+		// Back to auto: sticky resumes from the vetoed-in family, no classifier call.
+		harness.session.setRouteMode("auto");
+		await maybeRoute("continue with the previous work");
+		expect(harness.session.model?.id).toBe("claude-route");
+		const methods = harness.sessionManager
+			.getEntries()
+			.filter((entry): entry is CustomEntry => entry.type === "custom" && entry.customType === "openabcode-routing")
+			.map((entry) => (entry.data as { method?: string }).method);
+		expect(methods).toEqual(["heuristic", "sticky"]);
+		expect(harness.getPendingResponseCount()).toBe(0);
+	});
+
+	it("reports route status with degraded and inactive reasons", async () => {
+		const harness = await createHarness({ models: [{ id: "classifier", name: "Classifier" }] });
+		harnesses.push(harness);
+		const classifier = harness.getModel("classifier")!;
+
+		// Manual mode, nothing configured.
+		expect(harness.session.getRouteStatus()).toMatchObject({
+			mode: "manual",
+			active: false,
+			inactiveReason: "manual",
+			availableChoices: [],
+		});
+
+		// Auto mode without a classifier model.
+		harness.session.setRouteMode("auto");
+		expect(harness.session.getRouteStatus()).toMatchObject({ active: false, inactiveReason: "no-classifier" });
+
+		// Classifier configured but fewer than two families available.
+		harness.settingsManager.setRouterClassifierModel(classifier.provider, classifier.id);
+		expect(harness.session.getRouteStatus()).toMatchObject({
+			active: false,
+			inactiveReason: "not-enough-families",
+		});
+
+		// Two families configured: active but degraded.
+		for (const [provider, id] of [
+			["google", "gemini-route"],
+			["anthropic", "claude-route"],
+		] as const) {
+			harness.authStorage.setRuntimeApiKey(provider, `${provider}-key`);
+			harness.session.modelRegistry.registerProvider(provider, {
+				baseUrl: classifier.baseUrl,
+				apiKey: `${provider}-key`,
+				api: classifier.api,
+				models: [
+					{
+						id,
+						name: id,
+						reasoning: false,
+						input: ["text"],
+						cost: classifier.cost,
+						contextWindow: classifier.contextWindow,
+						maxTokens: classifier.maxTokens,
+					},
+				],
+			});
+			harness.settingsManager.setRouterModel(provider, `${provider}/${id}`);
+		}
+		expect(harness.session.getRouteStatus()).toMatchObject({
+			active: true,
+			availableChoices: ["google", "anthropic"],
+			missingChoices: ["openai"],
+		});
+	});
+
+	it("routes between the configured families when one is missing", async () => {
+		const harness = await createHarness({ models: [{ id: "classifier", name: "Classifier" }] });
+		harnesses.push(harness);
+		const classifier = harness.getModel("classifier")!;
+
+		// openai is deliberately left unconfigured: routing degrades to two families.
+		for (const [provider, id] of [
+			["google", "gemini-route"],
+			["anthropic", "claude-route"],
+		] as const) {
+			harness.authStorage.setRuntimeApiKey(provider, `${provider}-key`);
+			harness.session.modelRegistry.registerProvider(provider, {
+				baseUrl: classifier.baseUrl,
+				apiKey: `${provider}-key`,
+				api: classifier.api,
+				models: [
+					{
+						id,
+						name: id,
+						reasoning: false,
+						input: ["text"],
+						cost: classifier.cost,
+						contextWindow: classifier.contextWindow,
+						maxTokens: classifier.maxTokens,
+					},
+				],
+			});
+			harness.settingsManager.setRouterModel(provider, `${provider}/${id}`);
+		}
+		harness.settingsManager.setRouterClassifierModel(classifier.provider, classifier.id);
+		harness.session.setRouteMode("auto");
+
+		const maybeRoute = (
+			harness.session as unknown as { _maybeRouteModel(text: string): Promise<void> }
+		)._maybeRouteModel.bind(harness.session);
+
+		await maybeRoute("add a Flutter screen to the Android app");
+		expect(harness.session.model?.id).toBe("gemini-route");
+
+		// A sticky choice whose family became unavailable is re-classified.
+		(harness.session as unknown as { _lastRouteChoice?: string })._lastRouteChoice = "openai";
+		harness.setResponses([fauxAssistantMessage("anthropic")]);
+		await maybeRoute("continue with the previous work");
+		expect(harness.session.model?.id).toBe("claude-route");
 		expect(harness.getPendingResponseCount()).toBe(0);
 	});
 

@@ -49,16 +49,14 @@ Then start OpenABCode:
 openabcode
 ```
 
-Inside the interactive CLI:
+To set up Route mode:
 
-```text
-/login         Sign in to OpenABCode or another provider
-/model         Select fixed models and Route family models
-/route-model   Select the model that classifies Route tasks
-/route         Turn automatic task routing on or off
-```
+1. Run `/login` and configure the providers you want to use.
+2. Run `/route-model` and select the authenticated model that classifies tasks. This does not change the active execution model.
+3. Run `/model` and pick one specific model per family — e.g. `gpt-6-astra` for OpenAI, `gemini-3.8-flash` for Google, `claude-fable-5` for Anthropic. Route always executes tasks with the exact model you picked for the chosen family.
+4. Run `/route` and select `on`.
 
-When Route is on, the footer shows the configured execution models. Every completed routing decision is also stored in the session JSONL for audit.
+When Route is on, the footer shows the configured execution models. Route works as long as at least two model families are configured — with a family missing, routing degrades to the available ones. Every completed routing decision is stored in the session JSONL for audit, and manually overriding a routed model is recorded as veto feedback.
 
 ## Customizing Route Rules
 
@@ -69,16 +67,15 @@ Route rules, heuristic keywords, file extension mappings, project markers, and t
   "router": {
     "rules": {
       "openai": "Test and automation — algorithms, code review, testing, data analysis, scripting",
-      "google": "Google ecosystem — Android, Flutter, Firebase, Google Cloud, Kotlin",
+      "google": "Google ecosystem — Android, Flutter, Firebase, Google Cloud",
       "anthropic": "General development — all code writing, editing, debugging, architecture, UI"
     },
     "keywords": {
       "openai": ["algorithm", "unit test", "benchmark", "data analysis", "pipeline"],
       "google": ["android", "flutter", "dart", "firebase", "gcp"],
-      "anthropic": ["refactor", "debug", "architecture", "implement", "fix"]
+      "anthropic": ["refactor", "debug", "architecture", "migration"]
     },
     "fileExtensions": {
-      ".kt": "google",
       ".dart": "google",
       ".rs": "anthropic",
       ".ts": "anthropic",
