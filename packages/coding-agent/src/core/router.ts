@@ -23,7 +23,7 @@ const ROUTING_RULES: Record<ProviderChoice, string> = {
 	openai:
 		"Test and automation — choose for algorithms, code review, testing, data analysis, scripting, and CI/CD pipeline work",
 	google:
-		"Google ecosystem — choose when the task specifically depends on Android, Flutter, Firebase, Google Cloud, Chrome extensions, Gradle, Kotlin, or Google APIs",
+		"Google ecosystem — choose ONLY when the task specifically depends on Android (AndroidManifest, Jetpack), Flutter, Firebase, Google Cloud, Chrome extensions, or Google APIs. Kotlin/Gradle alone does NOT imply this: Kotlin backend (Ktor, Spring) and desktop work belongs to anthropic",
 	anthropic:
 		"General development — choose for all code writing, editing, debugging, architecture, refactoring, migrations, UI implementation, and any development task that does not specifically fit google or openai",
 };
@@ -57,6 +57,9 @@ export interface RoutingDecision {
 /** Session entry customType used to persist routing decisions for audit. */
 export const ROUTING_ENTRY_TYPE = "openabcode-routing";
 
+/** Session entry customType recording a manual override (veto) of a routing decision. */
+export const ROUTING_FEEDBACK_ENTRY_TYPE = "openabcode-routing-feedback";
+
 // --- Heuristic classifier (zero-cost fast path) ---
 
 /** Per-provider keyword lists that extend the built-in heuristic tables. */
@@ -88,12 +91,12 @@ export interface HeuristicRouteResult {
 }
 
 const HEURISTIC_KEYWORDS: Record<ProviderChoice, string[]> = {
+	// "kotlin"/"gradle" are deliberately absent: Kotlin is multi-host (Ktor,
+	// Spring, Compose Desktop) and does not imply the Google ecosystem.
 	google: [
 		"android",
 		"flutter",
 		"dart",
-		"kotlin",
-		"gradle",
 		"gcp",
 		"google cloud",
 		"firebase",
@@ -112,27 +115,14 @@ const HEURISTIC_KEYWORDS: Record<ProviderChoice, string[]> = {
 		"pipeline",
 		"multimodal",
 	],
-	anthropic: [
-		"refactor",
-		"debug",
-		"architecture",
-		"migration",
-		"implement",
-		"build",
-		"create",
-		"fix",
-		"feature",
-		"component",
-		"module",
-	],
+	// Generic verbs (implement/build/create/fix…) are deliberately absent: they
+	// match nearly every prompt and anthropic is already the default fallback.
+	anthropic: ["refactor", "debug", "architecture", "migration"],
 };
 
 const HEURISTIC_FILE_EXTENSIONS: Record<string, ProviderChoice> = {
-	// Google ecosystem
-	".kt": "google",
-	".kts": "google",
+	// Google ecosystem (.kt/.kts/.gradle carry no signal: language-neutral)
 	".dart": "google",
-	".gradle": "google",
 	// Anthropic / primary coding (all non-Google languages)
 	".swift": "anthropic",
 	".storyboard": "anthropic",
@@ -192,13 +182,11 @@ const HEURISTIC_FILE_EXTENSIONS: Record<string, ProviderChoice> = {
 };
 
 const HEURISTIC_PROJECT_MARKERS: Record<string, ProviderChoice> = {
-	// Google ecosystem
+	// Google ecosystem (build.gradle*/settings.gradle* carry no signal:
+	// Ktor/Spring/Compose Desktop projects use them too)
 	"pubspec.yaml": "google",
-	"build.gradle": "google",
-	"build.gradle.kts": "google",
-	"settings.gradle": "google",
-	"settings.gradle.kts": "google",
 	"androidmanifest.xml": "google",
+	"google-services.json": "google",
 	"firebase.json": "google",
 	// Anthropic / primary coding (all non-Google project types)
 	"package.swift": "anthropic",
@@ -242,25 +230,52 @@ function keywordMatches(keyword: string, text: string): boolean {
 	return text.includes(keyword);
 }
 
+const MAX_PROJECT_SIGNAL_FILES = 50;
+
+/**
+ * Keep only entries that can produce a routing signal (marker names or known
+ * extensions), so callers can probe/cache a short list instead of a full
+ * directory listing. Entries may carry a subdirectory prefix (apps/pubspec.yaml).
+ */
+export function filterProjectSignalFiles(entries: string[], config?: RouterConfig): string[] {
+	const markers = config?.projectMarkers ?? HEURISTIC_PROJECT_MARKERS;
+	const extensions = Object.keys(config?.fileExtensions ?? HEURISTIC_FILE_EXTENSIONS);
+	const kept: string[] = [];
+	for (const entry of entries) {
+		if (kept.length >= MAX_PROJECT_SIGNAL_FILES) break;
+		const lower = entry.toLowerCase();
+		const base = lower.split("/").pop() ?? lower;
+		if (markers[base] || extensions.some((extension) => lower.endsWith(extension))) kept.push(entry);
+	}
+	return kept;
+}
+
 /**
  * Zero-cost heuristic provider classification from prompt keywords, file
  * extensions, and project marker files. Returns undefined when no signal
  * matches or the top providers tie.
  *
  * When a config table is provided it fully replaces the corresponding built-in
- * default; when absent the built-in table is used.
+ * default; when absent the built-in table is used. When `allowed` is provided,
+ * only those families are scored (degraded routing with missing families).
  */
-export function classifyProviderHeuristic(input: RouteSignal, config?: RouterConfig): HeuristicRouteResult | undefined {
+export function classifyProviderHeuristic(
+	input: RouteSignal,
+	config?: RouterConfig,
+	allowed?: readonly ProviderChoice[],
+): HeuristicRouteResult | undefined {
+	const choices = allowed && allowed.length > 0 ? allowed : ROUTE_PROVIDER_CHOICES;
 	const text = input.text.toLowerCase();
 	const fileNames = (input.fileNames ?? []).map((name) => name.toLowerCase());
 	const projectFiles = (input.projectFiles ?? []).map((name) => name.toLowerCase());
 
 	const matched: Record<ProviderChoice, Set<string>> = { openai: new Set(), google: new Set(), anthropic: new Set() };
+	const isAllowed = (provider: ProviderChoice) => choices.includes(provider);
 
 	const effectiveKeywords: Record<ProviderChoice, string[]> = config?.keywords
 		? { openai: [], google: [], anthropic: [], ...config.keywords }
 		: HEURISTIC_KEYWORDS;
-	for (const provider of ROUTE_PROVIDER_CHOICES) {
+	for (const provider of choices) {
 		for (const keyword of effectiveKeywords[provider]) {
 			const normalized = keyword.toLowerCase();
 			if (normalized && keywordMatches(normalized, text)) {
@@ -272,7 +287,7 @@ export function classifyProviderHeuristic(input: RouteSignal, config?: RouterCon
 	const effectiveFileExtensions = config?.fileExtensions ?? HEURISTIC_FILE_EXTENSIONS;
 	for (const fileName of fileNames) {
 		for (const [extension, provider] of Object.entries(effectiveFileExtensions)) {
-			if (fileName.endsWith(extension)) {
+			if (isAllowed(provider) && fileName.endsWith(extension)) {
 				matched[provider].add(`ext:${extension}`);
 			}
 		}
@@ -280,23 +295,27 @@ export function classifyProviderHeuristic(input: RouteSignal, config?: RouterCon
 
 	const effectiveProjectMarkers = config?.projectMarkers ?? HEURISTIC_PROJECT_MARKERS;
 	for (const projectFile of projectFiles) {
-		const provider = effectiveProjectMarkers[projectFile];
-		if (provider) {
+		// Match markers on the basename so subdirectory-prefixed entries
+		// (apps/mobile/pubspec.yaml) from monorepo scans still count.
+		const baseName = projectFile.split("/").pop() ?? projectFile;
+		const provider = effectiveProjectMarkers[baseName];
+		if (provider && isAllowed(provider)) {
 			matched[provider].add(`project:${projectFile}`);
 		}
 		// Bundle directories like MyApp.xcodeproj appear as project entries too.
 		for (const [extension, extProvider] of Object.entries(effectiveFileExtensions)) {
-			if (projectFile.endsWith(extension)) {
+			if (isAllowed(extProvider) && projectFile.endsWith(extension)) {
 				matched[extProvider].add(`project:${extension}`);
 			}
 		}
 	}
 
-	const scores = ROUTE_PROVIDER_CHOICES.map((provider) => ({ provider, score: matched[provider].size })).sort(
-		(a, b) => b.score - a.score,
-	);
-	const [top, runnerUp] = scores;
-	if (top.score === 0 || top.score === runnerUp.score) return undefined;
+	const scores = choices
+		.map((provider) => ({ provider, score: matched[provider].size }))
+		.sort((a, b) => b.score - a.score);
+	const top = scores[0];
+	const runnerUpScore = scores[1]?.score ?? 0;
+	if (top.score === 0 || top.score === runnerUpScore) return undefined;
 
 	// Project and file signals pointing to the default provider merely confirm
 	// the ambient ecosystem, so let the classifier evaluate task complexity.
@@ -307,7 +326,9 @@ export function classifyProviderHeuristic(input: RouteSignal, config?: RouterCon
 
 	return {
 		choice: top.provider,
-		confidence: top.score >= 2 ? "high" : "low",
+		// Default-provider results are capped at "low": the default is where
+		// sticky/classifier fall back anyway, so never let it preempt them.
+		confidence: top.provider === effectiveDefault ? "low" : top.score >= 2 ? "high" : "low",
 		matched: [...matched[top.provider]].sort(),
 	};
 }
@@ -320,38 +341,48 @@ function isProviderChoice(value: string): value is ProviderChoice {
 	return ROUTE_PROVIDER_CHOICES.some((provider) => provider === value);
 }
 
+/** Fallback family: the configured default when available, else the first allowed family. */
+function fallbackChoice(choices: readonly ProviderChoice[], config?: RouterConfig): ProviderChoice {
+	const defaultProvider = config?.defaultProvider ?? DEFAULT_PROVIDER_CHOICE;
+	return choices.includes(defaultProvider) ? defaultProvider : choices[0];
+}
+
 function classifierPrompt(
 	text: string,
 	fileNames: string[],
 	projectFiles: string[],
 	recentContext: string[],
 	config?: RouterConfig,
+	choices: readonly ProviderChoice[] = ROUTE_PROVIDER_CHOICES,
 ): string {
 	const rules = config?.rules ?? ROUTING_RULES;
-	const defaultProvider = config?.defaultProvider ?? DEFAULT_PROVIDER_CHOICE;
+	const defaultProvider = fallbackChoice(choices, config);
 	return `You are a coding task router. Given the project context and user request, choose which AI model provider should handle this task.
 
 Routing rules:
-${ROUTE_PROVIDER_CHOICES.map((provider) => `- "${provider}": ${rules[provider] ?? "(no rule)"}`).join("\n")}
+${choices.map((provider) => `- "${provider}": ${rules[provider] ?? "(no rule)"}`).join("\n")}
 
 Default to "${defaultProvider}" if the task does not clearly fit another provider.
 
 ${projectFiles.length > 0 ? `Project root files: ${projectFiles.join(", ")}\n` : ""}${fileNames.length > 0 ? `Files involved: ${fileNames.join(", ")}\n` : ""}${recentContext.length > 0 ? `Recent conversation:\n${recentContext.map((snippet) => `- ${snippet}`).join("\n")}\n` : ""}Task: "${text}"
 
-Return ONLY one of: ${ROUTE_PROVIDER_CHOICES.map((provider) => `"${provider}"`).join(", ")}`;
+Return ONLY one of: ${choices.map((provider) => `"${provider}"`).join(", ")}`;
 }
 
 /**
  * Use the configured classifier model to choose the best provider for this task.
- * Falls back to "openai" (default) on any failure or timeout.
+ * Only families in `allowed` are offered; falls back to the default family (or
+ * the first allowed one) on any failure, timeout, or out-of-set answer.
  */
 export async function classifyProvider(
 	model: Model<Api>,
 	input: RouteSignal,
 	options: SimpleStreamOptions,
 	config?: RouterConfig,
+	allowed?: readonly ProviderChoice[],
 ): Promise<ProviderChoice> {
-	const defaultProvider = config?.defaultProvider ?? DEFAULT_PROVIDER_CHOICE;
+	const choices = allowed && allowed.length > 0 ? allowed : ROUTE_PROVIDER_CHOICES;
+	const defaultProvider = fallbackChoice(choices, config);
 	const fileNames = (input.fileNames ?? []).filter(Boolean);
 	const projectFiles = input.projectFiles ?? [];
 	const recentContext = (input.recentContext ?? []).filter(Boolean);
@@ -369,7 +400,7 @@ export async function classifyProvider(
 						content: [
 							{
 								type: "text",
-								text: classifierPrompt(input.text, fileNames, projectFiles, recentContext, config),
+								text: classifierPrompt(input.text, fileNames, projectFiles, recentContext, config, choices),
 							},
 						],
 						timestamp: Date.now(),
@@ -387,7 +418,7 @@ export async function classifyProvider(
 			.trim()
 			.toLowerCase()
 			.replace(/"/g, "");
-		if (isProviderChoice(raw)) return raw;
+		if (isProviderChoice(raw) && choices.includes(raw)) return raw;
 		return defaultProvider;
 	} catch {
 		return defaultProvider;

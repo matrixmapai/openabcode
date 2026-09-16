@@ -4,24 +4,6 @@
 import type { Model } from "../types.ts";
 
 export const CEREBRAS_MODELS = {
-	"gemma-4-31b": {
-		id: "gemma-4-31b",
-		name: "Gemma 4 31B IT",
-		api: "openai-completions",
-		provider: "cerebras",
-		baseUrl: "https://api.cerebras.ai/v1",
-		compat: {"supportsStore":false,"supportsDeveloperRole":false},
-		reasoning: true,
-		input: ["text", "image"],
-		cost: {
-			input: 0.99,
-			output: 1.49,
-			cacheRead: 0,
-			cacheWrite: 0,
-		},
-		contextWindow: 131072,
-		maxTokens: 40960,
-	} satisfies Model<"openai-completions">,
 	"gpt-oss-120b": {
 		id: "gpt-oss-120b",
 		name: "GPT OSS 120B",
@@ -40,22 +22,22 @@ export const CEREBRAS_MODELS = {
 		contextWindow: 131072,
 		maxTokens: 40960,
 	} satisfies Model<"openai-completions">,
-	"zai-glm-4.7": {
-		id: "zai-glm-4.7",
-		name: "Z.AI GLM-4.7",
+	"qwen-3.8-27b": {
+		id: "qwen-3.8-27b",
+		name: "Qwen3.8 27B",
 		api: "openai-completions",
 		provider: "cerebras",
 		baseUrl: "https://api.cerebras.ai/v1",
 		compat: {"supportsStore":false,"supportsDeveloperRole":false},
 		reasoning: true,
-		input: ["text"],
+		input: ["text", "image"],
 		cost: {
-			input: 2.25,
-			output: 2.75,
-			cacheRead: 2.25,
+			input: 0.99,
+			output: 1.49,
+			cacheRead: 0,
 			cacheWrite: 0,
 		},
-		contextWindow: 131072,
-		maxTokens: 40960,
+		contextWindow: 65536,
+		maxTokens: 32768,
 	} satisfies Model<"openai-completions">,
 } as const;

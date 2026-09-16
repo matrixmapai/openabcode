@@ -37,9 +37,9 @@ describe("Fireworks models", () => {
 		});
 	});
 
-	it("registers the Fire Pass turbo router model", () => {
+	it("registers the Fire Pass router models", () => {
 		const model = getModels("fireworks").find(
-			(candidate) => candidate.id.startsWith("accounts/fireworks/routers/") && candidate.id.endsWith("-turbo"),
+			(candidate) => candidate.id.startsWith("accounts/fireworks/routers/") && candidate.id.endsWith("-latest"),
 		);
 
 		expect(model).toBeDefined();

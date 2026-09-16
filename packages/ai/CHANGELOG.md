@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-16
+
+### Changed
+
+- Refreshed all generated model catalogs from upstream: removed retired models (`glm-4.5-air`, `k2p7`, `gpt-5.2-codex`, `gpt-5.1-codex-max`, dated Claude aliases, and others) and added current replacements.
+- Cloudflare AI Gateway now serves only `/anthropic` and `/openai` upstreams; the workers-ai `/compat` completions path was removed from the catalog and the provider no longer registers the completions API.
+
+### Added
+
+- `supportsReasoningEffort` compat flag for OpenAI Responses models; when false the `reasoning.effort` request field is omitted (used by OpenCode Grok Build).
+
 ## [1.0.9] - 2026-07-19
 
 ## [1.0.8] - 2026-07-19

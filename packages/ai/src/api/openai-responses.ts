@@ -62,6 +62,7 @@ function getCompat(model: Model<"openai-responses">): Required<OpenAIResponsesCo
 		supportsDeveloperRole: model.compat?.supportsDeveloperRole ?? true,
 		sendSessionIdHeader: model.compat?.sendSessionIdHeader ?? true,
 		supportsLongCacheRetention: model.compat?.supportsLongCacheRetention ?? true,
+		supportsReasoningEffort: model.compat?.supportsReasoningEffort ?? true,
 	};
 }
 
@@ -249,7 +250,7 @@ function buildParams(model: Model<"openai-responses">, context: Context, options
 		params.tools = convertResponsesTools(context.tools);
 	}
 
-	if (model.reasoning) {
+	if (model.reasoning && (model.compat?.supportsReasoningEffort ?? true)) {
 		if (options?.reasoningEffort || options?.reasoningSummary) {
 			const effort = options?.reasoningEffort
 				? (model.thinkingLevelMap?.[options.reasoningEffort] ?? options.reasoningEffort)

@@ -14,8 +14,9 @@
  */
 
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
-import { basename, dirname } from "node:path";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readdir } from "node:fs/promises";
+import { basename, dirname, join } from "node:path";
 import type {
 	Agent,
 	AgentEvent,
@@ -94,13 +95,16 @@ import type { ResourceExtensionPaths, ResourceLoader } from "./resource-loader.t
 import {
 	classifyProvider,
 	classifyProviderHeuristic,
+	filterProjectSignalFiles,
 	type ProviderChoice,
 	pickRouteModel,
 	ROUTE_PROVIDER_CHOICES,
 	ROUTING_ENTRY_TYPE,
+	ROUTING_FEEDBACK_ENTRY_TYPE,
 	type RouterConfig,
 	type RoutingDecision,
 	type RoutingMethod,
+	routeProviderOf,
 } from "./router.ts";
 import type { BranchSummaryEntry, CompactionEntry, SessionEntry, SessionManager } from "./session-manager.ts";
 import { CURRENT_SESSION_VERSION, getLatestCompactionEntry, type SessionHeader } from "./session-manager.ts";
@@ -280,6 +284,23 @@ function estimateMessagesTokens(messages: AgentMessage[]): number {
 /** Standard thinking levels */
 const THINKING_LEVELS: ThinkingLevel[] = ["off", "minimal", "low", "medium", "high"];
 
+/** Consecutive low-confidence dissents that trigger a routing re-classification. */
+const ROUTE_DISSENT_RECLASSIFY_AFTER = 2;
+/** Sticky turns after which the routing choice is revalidated by the classifier. */
+const ROUTE_STICKY_REVALIDATE_AFTER = 10;
+
+/** Diagnostic snapshot of the task router, for UI display and troubleshooting. */
+export interface RouteStatus {
+	mode: "auto" | "manual";
+	/** Families with a configured, authenticated execution model. */
+	availableChoices: ProviderChoice[];
+	/** Families missing configuration or auth. */
+	missingChoices: ProviderChoice[];
+	/** Whether auto-routing will actually run for the next prompt. */
+	active: boolean;
+	inactiveReason?: "manual" | "no-classifier" | "not-enough-families";
+}
+
 // ============================================================================
 // AgentSession Class
 // ============================================================================
@@ -352,6 +373,17 @@ export class AgentSession {
 	// Sticky routing: last provider choice, reused until a conflicting
 	// high-confidence heuristic signal or a manual model switch invalidates it.
 	private _lastRouteChoice?: ProviderChoice;
+	/** Turns served by sticky reuse since the last classification. */
+	private _stickyStreak = 0;
+	/** Consecutive low-confidence heuristic dissents against the sticky choice. */
+	private _dissentStreak = 0;
+	private _dissentChoice?: ProviderChoice;
+	/** Most recent auto-routing decision, kept for veto detection on manual switches. */
+	private _lastRoutingDecision?: { id: string; provider: ProviderChoice };
+	/** Family the user chose when vetoing an auto-routing decision. */
+	private _routeVetoChoice?: ProviderChoice;
+	/** Signal-relevant project files, collected once per cwd for the session. */
+	private _routeProjectFiles?: { cwd: string; files: string[] };
 
 	// Tool registry for extension getTools/setTools
 	private _toolRegistry: Map<string, AgentTool> = new Map();
@@ -1573,7 +1605,43 @@ export class AgentSession {
 	}
 
 	setRouteMode(mode: "auto" | "manual"): void {
+		if (mode === "auto" && this._routeMode !== "auto" && this._routeVetoChoice) {
+			// Resume from the family the user last chose, not a fresh classification.
+			this._lastRouteChoice = this._routeVetoChoice;
+		}
 		this._routeMode = mode;
+	}
+
+	/** Why (and whether) auto-routing will run for the next prompt. */
+	getRouteStatus(): RouteStatus {
+		const available = this._modelRegistry.getAvailable();
+		const hasAuth = (model: Model<any>) => this._modelRegistry.hasConfiguredAuth(model);
+		const configured = this.settingsManager.getRouterModels();
+		const availableChoices = ROUTE_PROVIDER_CHOICES.filter((choice) =>
+			pickRouteModel(choice, available, hasAuth, configured),
+		);
+		const missingChoices = ROUTE_PROVIDER_CHOICES.filter((choice) => !availableChoices.includes(choice));
+		const classifierRef = this.settingsManager.getRouterClassifierModel();
+		const [classifierProvider, ...classifierIdParts] = classifierRef?.split("/") ?? [];
+		const classifierId = classifierIdParts.join("/");
+		const classifierModel = classifierProvider
+			? available.find(
+					(model) => model.provider === classifierProvider && model.id === classifierId && hasAuth(model),
+				)
+			: undefined;
+
+		let inactiveReason: RouteStatus["inactiveReason"];
+		if (this._routeMode !== "auto") inactiveReason = "manual";
+		else if (!classifierModel) inactiveReason = "no-classifier";
+		else if (availableChoices.length < 2) inactiveReason = "not-enough-families";
+
+		return {
+			mode: this._routeMode,
+			availableChoices,
+			missingChoices,
+			active: inactiveReason === undefined,
+			inactiveReason,
+		};
 	}
 
 	/**
@@ -1581,9 +1649,9 @@ export class AgentSession {
 	 * provider turn via a three-stage pipeline:
 	 * 1. zero-cost heuristic (keywords, file extensions, project markers)
 	 * 2. sticky reuse of the previous choice
-	 * 3. LLM classifier fallback (first routed turn only)
-	 * No-op when routing is manual, no authenticated classifier model is
-	 * configured, or no eligible model is available.
+	 * 3. LLM classifier (first routed turn, accumulated dissents, or stale sticky)
+	 * Routing degrades to the configured families and is skipped when fewer than
+	 * two are available or no authenticated classifier model is configured.
 	 * The switch is per-turn: it does not persist a new default model.
 	 */
 	private async _maybeRouteModel(text: string): Promise<void> {
@@ -1603,15 +1671,12 @@ export class AgentSession {
 		);
 		if (!classifierModel) return;
 
-		// Skip routing entirely when any execution family is unavailable.
-		if (ROUTE_PROVIDER_CHOICES.some((choice) => !pickRouteModel(choice, available, hasAuth, configured))) return;
-
-		let projectFiles: string[] = [];
-		try {
-			projectFiles = readdirSync(this._cwd).slice(0, 30);
-		} catch {
-			// Routing signals are best-effort; classify without project files.
-		}
+		// Degrade to the families that have a configured, authenticated model;
+		// routing between fewer than two families is pointless.
+		const availableChoices = ROUTE_PROVIDER_CHOICES.filter((choice) =>
+			pickRouteModel(choice, available, hasAuth, configured),
+		);
+		if (availableChoices.length < 2) return;
 
 		const decisionID = `rtd_${randomUUID()}`;
 		const routerConfig: RouterConfig = {
@@ -1621,7 +1686,12 @@ export class AgentSession {
 			projectMarkers: this.settingsManager.getRouterHeuristicProjectMarkers() as RouterConfig["projectMarkers"],
 			defaultProvider: this.settingsManager.getRouterDefaultProvider() as ProviderChoice | undefined,
 		};
-		const heuristic = classifyProviderHeuristic({ text, projectFiles }, routerConfig);
+		const projectFiles = await this._collectRouteProjectFiles(routerConfig);
+		const heuristic = classifyProviderHeuristic({ text, projectFiles }, routerConfig, availableChoices);
+
+		// A sticky choice whose family became unavailable must be re-classified.
+		const stickyChoice =
+			this._lastRouteChoice && availableChoices.includes(this._lastRouteChoice) ? this._lastRouteChoice : undefined;
 
 		let choice: ProviderChoice;
 		let method: RoutingMethod;
@@ -1631,29 +1701,48 @@ export class AgentSession {
 			choice = heuristic.choice;
 			method = "heuristic";
 			matchedSignals = heuristic.matched;
-		} else if (this._lastRouteChoice) {
-			// Sticky: reuse the previous choice. Only a conflicting high-confidence
-			// heuristic (handled above) or a manual model switch re-routes.
-			choice = this._lastRouteChoice;
-			method = "sticky";
+			this._resetRouteStreaks();
 		} else {
-			const auth = await this._modelRegistry.getApiKeyAndHeaders(classifierModel);
-			if (!auth.ok) return;
-			choice = await classifyProvider(
-				classifierModel,
-				{ text, projectFiles, recentContext: this._recentRouteContext() },
-				{
-					apiKey: auth.apiKey,
-					headers:
-						classifierModel.provider === OPENABCODE_PROVIDER
-							? { ...auth.headers, [OPENABCODE_ROUTING_DECISION_HEADER]: decisionID }
-							: auth.headers,
-					env: auth.env,
-				},
-				routerConfig,
-			);
-			method = "classifier";
-			usedClassifier = true;
+			// Track consecutive low-confidence dissents against the sticky choice.
+			const dissent = heuristic && stickyChoice && heuristic.choice !== stickyChoice ? heuristic.choice : undefined;
+			if (dissent && dissent === this._dissentChoice) {
+				this._dissentStreak++;
+			} else {
+				this._dissentChoice = dissent;
+				this._dissentStreak = dissent ? 1 : 0;
+			}
+
+			// Reclassify when sticky is missing/stale, dissents accumulate, or the
+			// choice has gone unvalidated for too many turns.
+			const reclassify =
+				!stickyChoice ||
+				this._dissentStreak >= ROUTE_DISSENT_RECLASSIFY_AFTER ||
+				this._stickyStreak >= ROUTE_STICKY_REVALIDATE_AFTER;
+			if (!reclassify) {
+				choice = stickyChoice;
+				method = "sticky";
+				this._stickyStreak++;
+			} else {
+				const auth = await this._modelRegistry.getApiKeyAndHeaders(classifierModel);
+				if (!auth.ok) return;
+				choice = await classifyProvider(
+					classifierModel,
+					{ text, projectFiles, recentContext: this._recentRouteContext() },
+					{
+						apiKey: auth.apiKey,
+						headers:
+							classifierModel.provider === OPENABCODE_PROVIDER
+								? { ...auth.headers, [OPENABCODE_ROUTING_DECISION_HEADER]: decisionID }
+								: auth.headers,
+						env: auth.env,
+					},
+					routerConfig,
+					availableChoices,
+				);
+				method = "classifier";
+				usedClassifier = true;
+				this._resetRouteStreaks();
+			}
 		}
 		this._lastRouteChoice = choice;
 
@@ -1673,6 +1762,7 @@ export class AgentSession {
 			timestamp: Date.now(),
 		};
 		this.sessionManager.appendCustomEntry(ROUTING_ENTRY_TYPE, decision);
+		this._lastRoutingDecision = { id: decision.id, provider: choice };
 		if (picked.model.provider === OPENABCODE_PROVIDER) {
 			this.agent.requestHeaders = { [OPENABCODE_ROUTING_DECISION_HEADER]: decision.id };
 		}
@@ -1684,6 +1774,54 @@ export class AgentSession {
 		this.sessionManager.appendModelChange(picked.model.provider, picked.model.id);
 		this.setThinkingLevel(thinkingLevel);
 		await this._emitModelSelect(picked.model, previousModel, "route");
+	}
+
+	private _resetRouteStreaks(): void {
+		this._stickyStreak = 0;
+		this._dissentStreak = 0;
+		this._dissentChoice = undefined;
+	}
+
+	/** Signal-relevant project files (root + one level of subdirectories), cached per cwd. */
+	private async _collectRouteProjectFiles(routerConfig: RouterConfig): Promise<string[]> {
+		if (this._routeProjectFiles?.cwd === this._cwd) return this._routeProjectFiles.files;
+		let files: string[] = [];
+		try {
+			const entries = await readdir(this._cwd, { withFileTypes: true });
+			// Monorepos keep their markers one level down (apps/mobile/pubspec.yaml).
+			const subdirs = entries.filter((entry) => entry.isDirectory() && !entry.name.startsWith(".")).slice(0, 10);
+			const nested = await Promise.all(
+				subdirs.map(async (dir) => {
+					try {
+						const children = await readdir(join(this._cwd, dir.name));
+						return children.map((child) => `${dir.name}/${child}`);
+					} catch {
+						return [];
+					}
+				}),
+			);
+			files = filterProjectSignalFiles([...entries.map((entry) => entry.name), ...nested.flat()], routerConfig);
+		} catch {
+			// Routing signals are best-effort; classify without project files.
+		}
+		this._routeProjectFiles = { cwd: this._cwd, files };
+		return files;
+	}
+
+	/** Record a manual override of the previous auto-routing decision as veto feedback. */
+	private _recordRouteVeto(model: Model<any>): void {
+		const vetoed = this._lastRoutingDecision;
+		this._lastRoutingDecision = undefined;
+		if (!vetoed) return;
+		const chosen = routeProviderOf(model);
+		if (!chosen || chosen === vetoed.provider) return;
+		this._routeVetoChoice = chosen;
+		this.sessionManager.appendCustomEntry(ROUTING_FEEDBACK_ENTRY_TYPE, {
+			vetoedDecisionId: vetoed.id,
+			vetoedProvider: vetoed.provider,
+			chosenProvider: chosen,
+			timestamp: Date.now(),
+		});
 	}
 
 	/** Recent user prompts (truncated) used as extra classifier context. */
@@ -1711,8 +1849,10 @@ export class AgentSession {
 
 		if (!options.preserveRouteMode) {
 			// Explicit model choices outside Route configuration are manual overrides.
+			this._recordRouteVeto(model);
 			this._routeMode = "manual";
 			this._lastRouteChoice = undefined;
+			this._resetRouteStreaks();
 		}
 
 		const previousModel = this.model;
@@ -1732,8 +1872,10 @@ export class AgentSession {
 			throw new Error(`No API key for ${model.provider}/${model.id}`);
 		}
 
+		this._recordRouteVeto(model);
 		this._routeMode = "manual";
 		this._lastRouteChoice = undefined;
+		this._resetRouteStreaks();
 		const previousModel = this.model;
 		const thinkingLevel = this._getThinkingLevelForModelSwitch();
 		this.agent.state.model = model;

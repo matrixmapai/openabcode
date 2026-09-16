@@ -5,7 +5,13 @@ import {
 	OPENABCODE_PROVIDER_ID as OPENABCODE_PROVIDER,
 } from "@openabcode/ai/providers/openabcode";
 import { describe, expect, it } from "vitest";
-import { classifyProvider, classifyProviderHeuristic, pickRouteModel, routeProviderOf } from "../../src/core/router.ts";
+import {
+	classifyProvider,
+	classifyProviderHeuristic,
+	filterProjectSignalFiles,
+	pickRouteModel,
+	routeProviderOf,
+} from "../../src/core/router.ts";
 import { BUILTIN_SLASH_COMMANDS } from "../../src/core/slash-commands.ts";
 
 function model(provider: string, id: string): Model<Api> {
@@ -38,6 +44,25 @@ describe("OpenABCode router", () => {
 			);
 			expect(choice).toBe("openai");
 			expect(faux.getPendingResponseCount()).toBe(0);
+		} finally {
+			faux.unregister();
+		}
+	});
+
+	it("classifyProvider falls back when the answer is outside the allowed set", async () => {
+		const faux = registerFauxProvider();
+		faux.setResponses([fauxAssistantMessage("anthropic")]);
+
+		try {
+			// Default (anthropic) is unavailable too, so fall back to the first allowed family
+			const choice = await classifyProvider(
+				faux.getModel(),
+				{ text: "review this concurrency code" },
+				{ apiKey: "faux-key" },
+				undefined,
+				["openai", "google"],
+			);
+			expect(choice).toBe("openai");
 		} finally {
 			faux.unregister();
 		}
@@ -147,6 +172,26 @@ describe("OpenABCode heuristic router", () => {
 		expect(result?.confidence).toBe("high");
 	});
 
+	it("does not treat Kotlin/Gradle as Google ecosystem signals", () => {
+		// Kotlin backend (Ktor/Spring) and desktop projects must not route to google
+		const result = classifyProviderHeuristic({
+			text: "refactor this Kotlin service",
+			fileNames: ["src/main/kotlin/UserService.kt"],
+			projectFiles: ["build.gradle.kts", "settings.gradle.kts"],
+		});
+		expect(result?.choice).not.toBe("google");
+	});
+
+	it("still routes Android projects to google via strong markers", () => {
+		const result = classifyProviderHeuristic({
+			text: "add a screen to the Android app",
+			fileNames: ["app/src/main/java/MainActivity.kt"],
+			projectFiles: ["androidmanifest.xml", "google-services.json", "build.gradle.kts"],
+		});
+		expect(result?.choice).toBe("google");
+		expect(result?.confidence).toBe("high");
+	});
+
 	it("returns undefined on a tie between providers", () => {
 		const result = classifyProviderHeuristic({ text: "debug the flutter app" });
 		// "debug" (anthropic) vs "flutter" (google) — one signal each
@@ -197,10 +242,21 @@ describe("OpenABCode heuristic router", () => {
 		expect(result).toBeUndefined();
 	});
 
-	it("allows explicit task keywords to select the default provider", () => {
+	it("allows explicit task keywords to select the default provider at low confidence", () => {
 		const result = classifyProviderHeuristic({ text: "debug the module" });
 		expect(result?.choice).toBe("anthropic");
-		expect(result?.confidence).toBe("high");
+		expect(result?.confidence).toBe("low");
+	});
+
+	it("caps default-provider confidence at low even with multiple signals", () => {
+		// Sticky/classifier fall back to the default anyway; never let it preempt them
+		const result = classifyProviderHeuristic({ text: "refactor the architecture before the migration" });
+		expect(result?.choice).toBe("anthropic");
+		expect(result?.confidence).toBe("low");
+	});
+
+	it("ignores generic verbs that match nearly every prompt", () => {
+		expect(classifyProviderHeuristic({ text: "implement a login page and fix the build" })).toBeUndefined();
 	});
 
 	it("allows default-provider signals when defaultProvider is overridden", () => {
@@ -208,5 +264,50 @@ describe("OpenABCode heuristic router", () => {
 		const result = classifyProviderHeuristic({ text: "debug the handler" }, { defaultProvider: "google" });
 		expect(result?.choice).toBe("anthropic");
 		expect(result?.confidence).toBe("low");
+	});
+
+	it("ignores signals for families outside the allowed set", () => {
+		const result = classifyProviderHeuristic(
+			{ text: "add a Flutter screen to the Android app", projectFiles: ["pubspec.yaml"] },
+			undefined,
+			["openai", "anthropic"],
+		);
+		expect(result).toBeUndefined();
+	});
+
+	it("routes between two allowed families without the third", () => {
+		// "debug" (anthropic) is ignored, so "flutter" no longer ties with it
+		const result = classifyProviderHeuristic({ text: "debug the flutter app" }, undefined, ["google", "openai"]);
+		expect(result?.choice).toBe("google");
+		expect(result?.confidence).toBe("low");
+	});
+
+	it("matches project markers by basename for monorepo subdirectory entries", () => {
+		const result = classifyProviderHeuristic({
+			text: "add a Flutter screen",
+			projectFiles: ["apps/mobile/pubspec.yaml"],
+		});
+		expect(result?.choice).toBe("google");
+		expect(result?.matched).toContain("project:apps/mobile/pubspec.yaml");
+	});
+
+	it("filterProjectSignalFiles keeps only marker and extension entries", () => {
+		const files = filterProjectSignalFiles([
+			"README.md",
+			"pubspec.yaml",
+			"apps/web/package.json",
+			"MyApp.xcodeproj",
+			"notes.txt",
+			"LICENSE",
+		]);
+		expect(files).toEqual(["pubspec.yaml", "apps/web/package.json", "MyApp.xcodeproj"]);
+	});
+
+	it("filterProjectSignalFiles respects replaced config tables", () => {
+		const files = filterProjectSignalFiles(["pubspec.yaml", "custom.marker"], {
+			projectMarkers: { "custom.marker": "openai" },
+			fileExtensions: {},
+		});
+		expect(files).toEqual(["custom.marker"]);
 	});
 });

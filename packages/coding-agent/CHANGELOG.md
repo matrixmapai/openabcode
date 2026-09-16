@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-09-16
+
+### Changed
+
+- Route heuristics no longer treat Kotlin/Gradle as Google-ecosystem signals; Android routing now relies on strong markers such as `AndroidManifest.xml` and `google-services.json`, so Kotlin backend and desktop work routes to the Anthropic family.
+- Narrowed Anthropic heuristic keywords to distinctive terms (`refactor`, `debug`, `architecture`, `migration`) and capped default-provider heuristic results at low confidence so they never preempt sticky routing or the classifier.
+- Route now degrades to the configured families when one is missing (minimum two) instead of disabling entirely; `/route` enables degraded mode with a warning listing the missing families.
+- Sticky routing choices are revalidated: two consecutive low-confidence dissents or ten unvalidated sticky turns trigger re-classification.
+- Project routing signals are collected asynchronously once per session, include first-level subdirectory markers for monorepos, and are filtered to signal-relevant files instead of the first 30 directory entries.
+
+### Added
+
+- Manual switches to a different model family right after an auto-routed turn are recorded as `openabcode-routing-feedback` session entries, and Route resumes from the user's chosen family when re-enabled.
+- `AgentSession.getRouteStatus()` reports route mode, available and missing families, and why routing is inactive.
+
 ## [1.0.9] - 2026-07-19
 
 ### Changed

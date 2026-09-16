@@ -5832,6 +5832,18 @@ export class InteractiveMode {
 			return;
 		}
 
+		// Two configured families are enough: routing degrades to the available set.
+		if (slots.length - missing.length >= 2) {
+			this.session.setRouteMode("auto");
+			this.settingsManager.setRouterEnabledAndSetupCompleted(true);
+			this.footer.invalidate();
+			this.showWarning(
+				`Route is degraded, missing: ${missing.map((slot) => ROUTE_MODEL_LABELS[slot]).join(", ")}. Configure via /model.`,
+			);
+			this.showStatus("Route on (degraded)");
+			return;
+		}
+
 		this.session.setRouteMode("manual");
 		this.settingsManager.setRouterEnabledAndSetupCompleted(false);
 		this.footer.invalidate();
