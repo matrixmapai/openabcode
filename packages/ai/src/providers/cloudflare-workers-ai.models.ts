@@ -20,7 +20,7 @@ export const CLOUDFLARE_WORKERS_AI_MODELS = {
 			cacheRead: 0.014,
 			cacheWrite: 0,
 		},
-		contextWindow: 1310720,
+		contextWindow: 1048576,
 		maxTokens: 1048576,
 	} satisfies Model<"openai-completions">,
 	"@cf/deepseek-ai/deepseek-v4-pro-0813": {
@@ -54,7 +54,7 @@ export const CLOUDFLARE_WORKERS_AI_MODELS = {
 		cost: {
 			input: 0.1,
 			output: 0.3,
-			cacheRead: 0,
+			cacheRead: 0.05,
 			cacheWrite: 0,
 		},
 		contextWindow: 256000,
@@ -122,7 +122,7 @@ export const CLOUDFLARE_WORKERS_AI_MODELS = {
 		baseUrl: "https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/v1",
 		compat: {"supportsStore":false,"supportsDeveloperRole":false,"supportsLongCacheRetention":false,"sendSessionAffinityHeaders":true},
 		reasoning: false,
-		input: ["text"],
+		input: ["text", "image"],
 		cost: {
 			input: 0.351,
 			output: 0.555,
@@ -309,8 +309,8 @@ export const CLOUDFLARE_WORKERS_AI_MODELS = {
 			cacheRead: 0.26,
 			cacheWrite: 0,
 		},
-		contextWindow: 1310720,
-		maxTokens: 1310720,
+		contextWindow: 1048576,
+		maxTokens: 1048576,
 	} satisfies Model<"openai-completions">,
 	"@cf/zai-org/glm-5.3-flash": {
 		id: "@cf/zai-org/glm-5.3-flash",
@@ -327,7 +327,7 @@ export const CLOUDFLARE_WORKERS_AI_MODELS = {
 			cacheRead: 0.03,
 			cacheWrite: 0,
 		},
-		contextWindow: 1310720,
+		contextWindow: 1048576,
 		maxTokens: 1048576,
 	} satisfies Model<"openai-completions">,
 } as const;

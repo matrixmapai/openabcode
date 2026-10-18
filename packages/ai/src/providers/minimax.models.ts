@@ -52,7 +52,7 @@ export const MINIMAX_MODELS = {
 			cacheRead: 0.06,
 			cacheWrite: 0,
 		},
-		contextWindow: 1048576,
+		contextWindow: 1000000,
 		maxTokens: 512000,
 	} satisfies Model<"anthropic-messages">,
 } as const;

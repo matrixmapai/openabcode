@@ -4,6 +4,24 @@
 import type { Model } from "../types.ts";
 
 export const HUGGINGFACE_MODELS = {
+	"MiniMaxAI/MiniMax-M1-80k": {
+		id: "MiniMaxAI/MiniMax-M1-80k",
+		name: "MiniMax M1 80K",
+		api: "openai-completions",
+		provider: "huggingface",
+		baseUrl: "https://router.huggingface.co/v1",
+		compat: {"supportsDeveloperRole":false},
+		reasoning: true,
+		input: ["text"],
+		cost: {
+			input: 0.55,
+			output: 2.2,
+			cacheRead: 0,
+			cacheWrite: 0,
+		},
+		contextWindow: 1000000,
+		maxTokens: 80000,
+	} satisfies Model<"openai-completions">,
 	"MiniMaxAI/MiniMax-M2": {
 		id: "MiniMaxAI/MiniMax-M2",
 		name: "MiniMax-M2",
@@ -322,6 +340,24 @@ export const HUGGINGFACE_MODELS = {
 		cost: {
 			input: 0.98,
 			output: 3.95,
+			cacheRead: 0,
+			cacheWrite: 0,
+		},
+		contextWindow: 131072,
+		maxTokens: 32768,
+	} satisfies Model<"openai-completions">,
+	"Qwen/Qwen3-VL-30B-A3B-Instruct": {
+		id: "Qwen/Qwen3-VL-30B-A3B-Instruct",
+		name: "Qwen3 VL 30B A3B Instruct",
+		api: "openai-completions",
+		provider: "huggingface",
+		baseUrl: "https://router.huggingface.co/v1",
+		compat: {"supportsDeveloperRole":false},
+		reasoning: false,
+		input: ["text", "image"],
+		cost: {
+			input: 0.2,
+			output: 0.7,
 			cacheRead: 0,
 			cacheWrite: 0,
 		},
@@ -1101,6 +1137,24 @@ export const HUGGINGFACE_MODELS = {
 		},
 		contextWindow: 262144,
 		maxTokens: 128000,
+	} satisfies Model<"openai-completions">,
+	"tencent/Hy4-preview": {
+		id: "tencent/Hy4-preview",
+		name: "Hy4 preview",
+		api: "openai-completions",
+		provider: "huggingface",
+		baseUrl: "https://router.huggingface.co/v1",
+		compat: {"supportsDeveloperRole":false},
+		reasoning: true,
+		input: ["text"],
+		cost: {
+			input: 0.834,
+			output: 2.501,
+			cacheRead: 0,
+			cacheWrite: 0,
+		},
+		contextWindow: 1000000,
+		maxTokens: 64000,
 	} satisfies Model<"openai-completions">,
 	"thinkingmachines/Inkling": {
 		id: "thinkingmachines/Inkling",
