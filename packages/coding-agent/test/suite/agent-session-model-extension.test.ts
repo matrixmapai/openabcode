@@ -512,7 +512,7 @@ describe("AgentSession model and extension characterization", () => {
 		const classifier = harness.getModel("classifier")!;
 		harness.authStorage.setRuntimeApiKey("openabcode", "hosted-key");
 		harness.session.modelRegistry.registerProvider("openabcode", {
-			baseUrl: "https://gateway.openabcode.com/v1",
+			baseUrl: "https://api.openabcode.com/v1",
 			apiKey: "hosted-key",
 			api: classifier.api,
 			models: [

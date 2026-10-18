@@ -34,10 +34,10 @@ export const CEREBRAS_MODELS = {
 		cost: {
 			input: 0.99,
 			output: 1.49,
-			cacheRead: 0,
+			cacheRead: 0.99,
 			cacheWrite: 0,
 		},
-		contextWindow: 65536,
-		maxTokens: 32768,
+		contextWindow: 131072,
+		maxTokens: 40960,
 	} satisfies Model<"openai-completions">,
 } as const;

@@ -6,7 +6,7 @@ import type { Model } from "../types.ts";
 export const OPENABCODE_PROVIDER_ID = "openabcode";
 export const OPENABCODE_ROUTING_DECISION_HEADER = "x-openabcode-routing-decision-id";
 
-const DEFAULT_BASE_URL = "https://gateway.openabcode.com/v1";
+const DEFAULT_BASE_URL = "https://api.openabcode.com/v1";
 
 export function openabcodeGatewayBaseUrl(): string {
 	const fromEnv = process.env.OPENABCODE_BASE_URL ?? process.env.OPENABCODE_API_BASE_URL;

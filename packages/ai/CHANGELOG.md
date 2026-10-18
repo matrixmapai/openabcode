@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-10-18
+
+### Changed
+
+- Updated the default `openabcode` hosted gateway base URL from `https://gateway.openabcode.com/v1` to `https://api.openabcode.com/v1`.
+- Refreshed generated model catalogs from upstream (`models.dev`, OpenRouter, Vercel AI Gateway, NVIDIA NIM) and aligned provider registrations (`fireworks`, `opencode-go`, `kimi-coding`).
+
 ## [1.1.0] - 2026-09-16
 
 ### Changed
