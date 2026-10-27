@@ -83,7 +83,7 @@ export const GROQ_MODELS = {
 		cost: {
 			input: 0.075,
 			output: 0.3,
-			cacheRead: 0,
+			cacheRead: 0.0375,
 			cacheWrite: 0,
 		},
 		contextWindow: 131072,
@@ -120,7 +120,7 @@ export const GROQ_MODELS = {
 			cacheRead: 0,
 			cacheWrite: 0,
 		},
-		contextWindow: 131042,
+		contextWindow: 131072,
 		maxTokens: 16384,
 	} satisfies Model<"openai-completions">,
 } as const;

@@ -88,9 +88,11 @@ describe("OpenABCode router", () => {
 	});
 
 	it("OpenABCode gateway model list mirrors the LiteLLM gateway catalog", () => {
-		expect(Object.keys(OPENABCODE_HOSTED_UPSTREAM)).toHaveLength(31);
+		expect(Object.keys(OPENABCODE_HOSTED_UPSTREAM).length).toBeGreaterThanOrEqual(49);
 		expect(OPENABCODE_HOSTED_UPSTREAM["claude-opus-4-8"]).toBe("anthropic");
+		expect(OPENABCODE_HOSTED_UPSTREAM["gemini-4-argon"]).toBe("google");
 		expect(OPENABCODE_HOSTED_UPSTREAM["gemini-3.1-pro-preview"]).toBe("google");
+		expect(OPENABCODE_HOSTED_UPSTREAM["gpt-6-astra"]).toBe("openai");
 		expect(OPENABCODE_HOSTED_UPSTREAM["gpt-5.6-luna"]).toBe("openai");
 		expect(OPENABCODE_HOSTED_UPSTREAM["gpt-image-2"]).toBe("openai");
 	});

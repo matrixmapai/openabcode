@@ -432,7 +432,25 @@ export async function classifyProvider(
 /** Map a model to the provider choice it can serve, or undefined if not routable. */
 export function routeProviderOf(model: Model<Api>): ProviderChoice | undefined {
 	if (model.provider === OPENABCODE_PROVIDER) {
-		return OPENABCODE_HOSTED_UPSTREAM[model.id];
+		const headerUpstream = model.headers?.["x-openabcode-upstream-provider"];
+		if (headerUpstream && isProviderChoice(headerUpstream)) return headerUpstream;
+		const mapped = OPENABCODE_HOSTED_UPSTREAM[model.id];
+		if (mapped) return mapped;
+		const lower = model.id.toLowerCase();
+		if (lower.startsWith("gemini-")) return "google";
+		if (lower.startsWith("claude-") || lower.startsWith("anthropic_") || lower.startsWith("anthropic/")) {
+			return "anthropic";
+		}
+		if (
+			lower.startsWith("gpt-") ||
+			lower.startsWith("grok-") ||
+			lower.startsWith("o1") ||
+			lower.startsWith("o3") ||
+			lower.startsWith("o4")
+		) {
+			return "openai";
+		}
+		return undefined;
 	}
 	if (model.provider === OPENROUTER_PROVIDER) {
 		return ROUTE_PROVIDER_CHOICES.find((provider) => model.id.startsWith(`${provider}/`));

@@ -19,8 +19,13 @@ import {
 	type SimpleStreamOptions,
 } from "@openabcode/ai/compat";
 import { registerOAuthProvider, resetOAuthProviders } from "@openabcode/ai/oauth";
-import { existsSync, readFileSync } from "fs";
-import { join } from "path";
+import {
+	OPENABCODE_HOSTED_UPSTREAM,
+	OPENABCODE_PROVIDER_ID,
+	openabcodeGatewayBaseUrl,
+} from "@openabcode/ai/providers/openabcode";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { dirname, join } from "path";
 import { type Static, Type } from "typebox";
 import { Compile } from "typebox/compile";
 import type { TLocalizedValidationError } from "typebox/error";
@@ -628,6 +633,12 @@ export class ModelRegistry {
 
 				const compat = mergeCompat(providerConfig.compat, modelDef.compat);
 				this.storeModelHeaders(providerName, modelDef.id, modelDef.headers);
+				if (providerName === OPENABCODE_PROVIDER_ID) {
+					const upstream = modelDef.headers?.["x-openabcode-upstream-provider"];
+					if (upstream === "openai" || upstream === "anthropic" || upstream === "google") {
+						OPENABCODE_HOSTED_UPSTREAM[modelDef.id] = upstream;
+					}
+				}
 
 				const defaultCost = { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 };
 				models.push({
@@ -841,6 +852,101 @@ export class ModelRegistry {
 	}
 
 	/**
+	 * Sync hosted models from OpenABCode Gateway (/v1/models) into memory and models.json.
+	 */
+	async syncOpenABCodeModels(options?: { timeoutMs?: number }): Promise<boolean> {
+		const baseUrl = openabcodeGatewayBaseUrl().replace(/\/+$/, "");
+		const timeoutMs = options?.timeoutMs ?? 2500;
+		const controller = new AbortController();
+		const timer = setTimeout(() => controller.abort(), timeoutMs);
+		try {
+			const response = await fetch(`${baseUrl}/models`, {
+				headers: { accept: "application/json" },
+				signal: controller.signal,
+			});
+			if (!response.ok) return false;
+			const payload = (await response.json()) as {
+				providers?: {
+					openabcode?: {
+						models?: Array<{
+							id: string;
+							name?: string;
+							api?: Api;
+							reasoning?: boolean;
+							input?: ("text" | "image")[];
+							cost?: Model<Api>["cost"];
+							contextWindow?: number;
+							maxTokens?: number;
+							headers?: Record<string, string>;
+						}>;
+					};
+				};
+			};
+			const remoteModels = payload?.providers?.openabcode?.models;
+			if (!Array.isArray(remoteModels) || remoteModels.length === 0) return false;
+
+			for (const model of remoteModels) {
+				const upstream = model.headers?.["x-openabcode-upstream-provider"];
+				if (model.id && (upstream === "openai" || upstream === "anthropic" || upstream === "google")) {
+					OPENABCODE_HOSTED_UPSTREAM[model.id] = upstream;
+				}
+			}
+
+			if (this.modelsJsonPath) {
+				try {
+					let existing: { providers?: Record<string, unknown> } = {};
+					if (existsSync(this.modelsJsonPath)) {
+						existing = JSON.parse(stripJsonComments(readFileSync(this.modelsJsonPath, "utf8"))) as {
+							providers?: Record<string, unknown>;
+						};
+					}
+					const nextConfig = {
+						...existing,
+						providers: {
+							...(existing.providers ?? {}),
+							[OPENABCODE_PROVIDER_ID]: {
+								models: remoteModels,
+							},
+						},
+					};
+					const serialized = `${JSON.stringify(nextConfig, null, 2)}\n`;
+					const current = existsSync(this.modelsJsonPath) ? readFileSync(this.modelsJsonPath, "utf8") : "";
+					if (current !== serialized) {
+						mkdirSync(dirname(this.modelsJsonPath), { recursive: true });
+						writeFileSync(this.modelsJsonPath, serialized, "utf8");
+					}
+				} catch {
+					// Ignore disk write errors and still update in-memory models
+				}
+			}
+
+			this.registerProvider(OPENABCODE_PROVIDER_ID, {
+				name: "OpenABCode Gateway",
+				baseUrl,
+				apiKey: "OPENABCODE_API_KEY",
+				api: "openai-completions",
+				models: remoteModels.map((m) => ({
+					id: m.id,
+					name: m.name || `${m.id} (OpenABCode)`,
+					api: "openai-completions",
+					baseUrl,
+					reasoning: Boolean(m.reasoning),
+					input: m.input ?? ["text", "image"],
+					cost: m.cost ?? { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+					contextWindow: m.contextWindow ?? 200_000,
+					maxTokens: m.maxTokens ?? 16_384,
+					headers: m.headers,
+				})),
+			});
+			return true;
+		} catch {
+			return false;
+		} finally {
+			clearTimeout(timer);
+		}
+	}
+
+	/**
 	 * Register a provider dynamically (from extensions).
 	 *
 	 * If provider has models: replaces all existing models for this provider.
@@ -949,6 +1055,12 @@ export class ModelRegistry {
 						? { ...modelDef.headers, ...modelOverride?.headers }
 						: undefined;
 				this.storeModelHeaders(providerName, modelDef.id, headers);
+				if (providerName === OPENABCODE_PROVIDER_ID) {
+					const upstream = headers?.["x-openabcode-upstream-provider"];
+					if (upstream === "openai" || upstream === "anthropic" || upstream === "google") {
+						OPENABCODE_HOSTED_UPSTREAM[modelDef.id] = upstream;
+					}
+				}
 
 				const model = this.applyConfiguredModelOverride(providerName, {
 					id: modelDef.id,

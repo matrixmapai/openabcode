@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import type { ThinkingLevel } from "@openabcode/agent-core";
 import type { Model } from "@openabcode/ai";
@@ -141,7 +142,15 @@ export async function createAgentSessionServices(
 	const agentDir = options.agentDir ? resolvePath(options.agentDir) : getAgentDir();
 	const authStorage = options.authStorage ?? AuthStorage.create(join(agentDir, "auth.json"));
 	const settingsManager = options.settingsManager ?? SettingsManager.create(cwd, agentDir);
-	const modelRegistry = options.modelRegistry ?? ModelRegistry.create(authStorage, join(agentDir, "models.json"));
+	const modelsJsonPath = join(agentDir, "models.json");
+	const modelRegistry = options.modelRegistry ?? ModelRegistry.create(authStorage, modelsJsonPath);
+	if (!options.modelRegistry && process.env.OPENABCODE_DISABLE_MODEL_SYNC !== "1" && !process.env.VITEST) {
+		if (!existsSync(modelsJsonPath)) {
+			await modelRegistry.syncOpenABCodeModels({ timeoutMs: 1500 });
+		} else {
+			void modelRegistry.syncOpenABCodeModels();
+		}
+	}
 	const resourceLoader = new DefaultResourceLoader({
 		...(options.resourceLoaderOptions ?? {}),
 		cwd,
