@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- Updated `OPENABCODE_HOSTED_UPSTREAM` catalog entries and refreshed upstream generated model catalogs.
+
 ## [1.1.1] - 2026-10-18
 
 ### Changed

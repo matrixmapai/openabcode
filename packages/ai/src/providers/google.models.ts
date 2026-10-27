@@ -375,6 +375,23 @@ export const GOOGLE_MODELS = {
 		contextWindow: 1048576,
 		maxTokens: 65536,
 	} satisfies Model<"google-generative-ai">,
+	"gemini-pro-latest": {
+		id: "gemini-pro-latest",
+		name: "Gemini Pro Latest",
+		api: "google-generative-ai",
+		provider: "google",
+		baseUrl: "https://generativelanguage.googleapis.com/v1beta",
+		reasoning: true,
+		input: ["text", "image"],
+		cost: {
+			input: 2,
+			output: 12,
+			cacheRead: 0.2,
+			cacheWrite: 0,
+		},
+		contextWindow: 1048576,
+		maxTokens: 65536,
+	} satisfies Model<"google-generative-ai">,
 	"gemma-4-26b-a4b-it": {
 		id: "gemma-4-26b-a4b-it",
 		name: "Gemma 4 26B A4B IT",

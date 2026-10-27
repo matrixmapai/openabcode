@@ -52,12 +52,12 @@ describe("GitHub Copilot OAuth device flow", () => {
 				return jsonResponse({
 					data: [
 						{
-							id: "gpt-5.4",
+							id: "gpt-5.6-sol",
 							model_picker_enabled: true,
 							capabilities: { supports: { tool_calls: true } },
 						},
 						{
-							id: "claude-opus-4.7",
+							id: "claude-opus-4.8",
 							model_picker_enabled: true,
 							policy: { state: "disabled" },
 							capabilities: { supports: { tool_calls: true } },
@@ -77,11 +77,11 @@ describe("GitHub Copilot OAuth device flow", () => {
 		vi.stubGlobal("fetch", fetchMock);
 
 		const credentials = await refreshGitHubCopilotToken("ghu_refresh_token");
-		expect(credentials.availableModelIds).toEqual(["gpt-5.4"]);
+		expect(credentials.availableModelIds).toEqual(["gpt-5.6-sol"]);
 
 		const modifiedModels = githubCopilotOAuthProvider.modifyModels?.(getModels("github-copilot"), credentials) ?? [];
 		expect(modifiedModels.filter((model) => model.provider === "github-copilot").map((model) => model.id)).toEqual([
-			"gpt-5.4",
+			"gpt-5.6-sol",
 		]);
 	});
 

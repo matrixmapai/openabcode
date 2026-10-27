@@ -465,7 +465,6 @@ describe("Cache Retention (OPENABCODE_CACHE_RETENTION)", () => {
 		});
 
 		it.each([
-			MODELS.opencode["deepseek-v4-flash"],
 			MODELS.opencode["deepseek-v4-pro"],
 			MODELS.opencode["kimi-k2.5"],
 			MODELS.opencode["kimi-k2.6"],

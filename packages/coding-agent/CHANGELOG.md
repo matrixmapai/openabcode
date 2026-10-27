@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- Automatically sync hosted `openabcode` models from the gateway (`/v1/models`) into `ModelRegistry` and `~/.openabcode/agent/models.json` on startup.
+
+### Fixed
+
+- Resolved upstream provider family in `routeProviderOf()` for dynamically synced `openabcode` models so `/model` selections immediately update the `Route` status bar.
+
 ## [1.1.1] - 2026-10-18
 
 ## [1.1.0] - 2026-09-16
