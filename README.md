@@ -52,9 +52,9 @@ openabcode
 To set up Route mode:
 
 1. Run `/login` and configure the providers you want to use.
-2. Run `/route-model` and select the authenticated model that classifies tasks. This does not change the active execution model.
-3. Run `/model` and pick one specific model per family — e.g. `gpt-6-astra` for OpenAI, `gemini-3.8-flash` for Google, `claude-fable-5` for Anthropic. Route always executes tasks with the exact model you picked for the chosen family.
-4. Run `/route` and select `on`.
+2. Run `/route` to open the unified Route configuration dashboard (or run `/route on` directly).
+   - Authenticated family slots (**Claude**, **ChatGPT**, **Gemini**) and the **Classifier model** are automatically pre-populated with smart defaults when available.
+   - Select any family row or **Classifier model** in `/route` to customize the bound model, then select `on` to enable automatic routing.
 
 When Route is on, the footer shows the configured execution models. Route works as long as at least two model families are configured — with a family missing, routing degrades to the available ones. Every completed routing decision is stored in the session JSONL for audit, and manually overriding a routed model is recorded as veto feedback.
 

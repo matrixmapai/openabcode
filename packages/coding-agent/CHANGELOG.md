@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Added
+
+- Upgraded `/route` into a unified Route configuration dashboard showing the `on`/`off` toggle, all three execution family slots (**Claude**, **ChatGPT**, **Gemini**), and the task **Classifier model** in a single view.
+- Added smart Route defaults (`suggestRouteClassifierModel`, `suggestRouteFamilyModel`) to automatically pre-populate unconfigured family and classifier slots from authenticated providers.
+- Added family-scoped filtering (`filter`) and contextual hints (`hint`) to `ModelSelectorComponent` when customizing individual family slots from `/route`.
+- Added `/route on`, `/route off`, and `/route status` subcommands for direct CLI toggling and status inspection.
+
+### Changed
+
+- Consolidated `/route-model` into the unified `/route` dashboard (`⚙ Classifier model`) and progressive Route setup wizard.
+- Made `/model` explicitly report when selecting a model also updates its corresponding Route family slot while Route mode is active.
+
 ## [1.1.2] - 2026-10-27
 
 ### Added

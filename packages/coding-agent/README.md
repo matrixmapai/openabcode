@@ -134,9 +134,10 @@ Route mode classifies each non-empty prompt before the main agent turn and selec
 Configure Route in the TUI:
 
 1. Run `/login` and configure the providers you want to use.
-2. Run `/route-model` and select the authenticated model that classifies tasks. This does not change the active execution model.
-3. Run `/model` and pick one specific model per family — e.g. `gpt-5.5` for OpenAI, `gemini-3.5-flash` for Google, `claude-opus-4.8` for Anthropic. Each selection is saved to its Route family, and Route always executes tasks with the exact model picked for the chosen family.
-4. Run `/route` and select `on`.
+2. Run `/route` to open the Route configuration dashboard (or run `/route on` directly).
+   - Authenticated family slots (**Claude**, **ChatGPT**, **Gemini**) and the **Classifier model** are automatically pre-populated with smart defaults when available.
+   - Select any family row in `/route` to customize its execution model (filtered to that family only), or select **Classifier model** to change the task classifier.
+   - Select `on` to enable automatic task routing, or `off` to use a single fixed model. You can also run `/route on`, `/route off`, or `/route status` directly.
 
 At least two configured families are required. With one family missing, Route enables in degraded mode and routes between the available families only.
 
@@ -186,8 +187,7 @@ Type `/` in the editor to trigger commands. [Extensions](#extensions) can regist
 |---------|-------------|
 | `/login`, `/logout` | OAuth authentication |
 | `/model` | Switch models |
-| `/route-model` | Select the authenticated model used to classify Route tasks |
-| `/route` | Turn automatic task routing on or off |
+| `/route [on\|off\|status]` | Open the Route dashboard, or toggle/inspect task routing directly |
 | `/scoped-models` | Enable/disable models for Ctrl+P cycling |
 | `/settings` | Thinking level, theme, message delivery, transport |
 | `/resume` | Pick from previous sessions |

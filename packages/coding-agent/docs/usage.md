@@ -35,8 +35,7 @@ Type `/` in the editor to open command completion. Extensions can register custo
 |---------|-------------|
 | `/login`, `/logout` | Manage OAuth or API-key credentials |
 | `/model` | Switch models |
-| `/route-model` | Select the authenticated model used to classify Route tasks |
-| `/route` | Turn automatic task routing on or off |
+| `/route [on\|off\|status]` | Open the Route dashboard, or toggle/inspect task routing directly |
 | `/scoped-models` | Enable/disable models for Ctrl+P cycling |
 | `/settings` | Thinking level, theme, message delivery, transport |
 | `/resume` | Pick from previous sessions |
@@ -63,16 +62,17 @@ Route mode classifies every non-empty prompt before the main agent turn and sele
 
 ### Configure Route
 
-Route requires one classifier model and one authenticated execution model for each family:
+Route requires one classifier model and at least two authenticated execution family models (`openai`, `google`, `anthropic`):
 
 1. Run `/login` and configure the providers you want to use.
-2. Run `/route-model` and select the authenticated model that will classify tasks. This does not change the active or default execution model.
-3. Run `/model` and pick one specific model per family — e.g. `gpt-5.5` for OpenAI, `gemini-3.5-flash` for Google, `claude-opus-4.8` for Anthropic. Each selection is saved to its corresponding Route family while preserving Route mode, and Route always executes tasks with the exact model picked for the chosen family.
-4. Run `/route` and select `on`.
+2. Run `/route` to open the unified Route configuration dashboard (or run `/route on` directly):
+   - **Smart defaults**: Any unconfigured family slot (**Claude**, **ChatGPT**, **Gemini**) or **Classifier model** is automatically pre-filled with a recommended authenticated model when available.
+   - **Per-family customization**: Select any family slot in `/route` to open a model selector filtered specifically to that family, or select **Classifier model** to customize the task classifier.
+   - **Guided setup & activation**: Select `on` (or run `/route on`). If any required slot still needs a selection, OpenABCode walks through the remaining choices before enabling Route.
 
-`/route` does not accept `on`, `off`, `auto`, or `manual` arguments; it opens the on/off selector. Route requires the classifier plus at least two configured execution families. With one family missing, Route enables in degraded mode and routes between the available families; with fewer than two, OpenABCode keeps Route off and reports the missing configuration.
+`/route` also accepts direct subcommands: `/route on`, `/route off`, and `/route status`. Route requires the classifier plus at least two configured execution families. With one family missing, Route enables in degraded mode and routes between the available families; with fewer than two, OpenABCode keeps Route off and reports the missing configuration.
 
-Selecting `off` opens the fixed-model flow. The selected fixed model becomes the active default and automatic routing is disabled.
+Selecting `off` in `/route` opens the fixed-model flow (or `/route off` locks the current active model and disables automatic routing).
 
 ### Per-Prompt Routing
 

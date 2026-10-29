@@ -103,3 +103,109 @@ describe("InteractiveMode startup input", () => {
 		expect(context.ui.requestRender).toHaveBeenCalledTimes(1);
 	});
 });
+
+describe("InteractiveMode /route configuration flow", () => {
+	function createRouteContext(models: Array<{ provider: string; id: string }>) {
+		const routerModels: Record<string, string> = {};
+		let classifierModel: string | undefined;
+		let enabled = false;
+		let routeMode: "auto" | "manual" = "manual";
+
+		const context: Record<string, unknown> = {
+			getModelCandidates: vi.fn(async () => models),
+			resolveRouteCandidate: (InteractiveMode.prototype as unknown as Record<string, unknown>).resolveRouteCandidate,
+			ensureSmartRouteDefaults: (InteractiveMode.prototype as unknown as Record<string, unknown>)
+				.ensureSmartRouteDefaults,
+			enableRouteIfConfigured: (InteractiveMode.prototype as unknown as Record<string, unknown>)
+				.enableRouteIfConfigured,
+			showRouteStatusSummary: (InteractiveMode.prototype as unknown as Record<string, unknown>)
+				.showRouteStatusSummary,
+			handleRouteCommand: (InteractiveMode.prototype as unknown as Record<string, unknown>).handleRouteCommand,
+			showRouteSelector: vi.fn(async () => {}),
+			showFixedModelFlow: vi.fn(async () => {}),
+			showRouteClassifierSelector: vi.fn(async () => {}),
+			showRouteFamilyModelSelector: vi.fn(async () => {}),
+			handleLoginCommand: vi.fn(async () => {}),
+			showStatus: vi.fn(),
+			showWarning: vi.fn(),
+			showError: vi.fn(),
+			footer: { invalidate: vi.fn() },
+			session: {
+				get routeMode() {
+					return routeMode;
+				},
+				model: models[0],
+				setRouteMode: vi.fn((mode: "auto" | "manual") => {
+					routeMode = mode;
+				}),
+				setFixedModelAndDisableRouter: vi.fn(async () => {
+					routeMode = "manual";
+					enabled = false;
+				}),
+				modelRegistry: {
+					hasConfiguredAuth: vi.fn(() => true),
+				},
+			},
+			settingsManager: {
+				getRouterClassifierModel: vi.fn(() => classifierModel),
+				setRouterClassifierModel: vi.fn((provider: string, id: string) => {
+					classifierModel = `${provider}/${id}`;
+				}),
+				getRouterModels: vi.fn(() => ({ ...routerModels })),
+				setRouterModel: vi.fn((family: string, ref: string) => {
+					routerModels[family] = ref;
+				}),
+				setRouterEnabledAndSetupCompleted: vi.fn((next: boolean) => {
+					enabled = next;
+				}),
+			},
+		};
+
+		return {
+			context,
+			getState: () => ({ routerModels: { ...routerModels }, classifierModel, enabled, routeMode }),
+		};
+	}
+
+	it("auto-populates smart defaults and enables Route in one step via /route on", async () => {
+		const { context, getState } = createRouteContext([
+			{ provider: "openabcode", id: "claude-opus-4-8" },
+			{ provider: "openabcode", id: "gpt-5.5" },
+			{ provider: "openabcode", id: "gemini-3.1-pro-preview" },
+			{ provider: "openabcode", id: "gemini-3.1-flash-lite" },
+		]);
+
+		await (context.handleRouteCommand as (arg?: string) => Promise<void>).call(context, "on");
+
+		const state = getState();
+		expect(state.classifierModel).toBe("openabcode/gemini-3.1-flash-lite");
+		expect(state.routerModels).toEqual({
+			anthropic: "openabcode/claude-opus-4-8",
+			openai: "openabcode/gpt-5.5",
+			google: "openabcode/gemini-3.1-pro-preview",
+		});
+		expect(state.enabled).toBe(true);
+		expect(state.routeMode).toBe("auto");
+		expect(context.showStatus).toHaveBeenCalledWith("Route on");
+	});
+
+	it("supports /route off and /route status subcommands directly", async () => {
+		const { context, getState } = createRouteContext([
+			{ provider: "anthropic", id: "claude-sonnet-4-6" },
+			{ provider: "openai", id: "gpt-5.4" },
+		]);
+
+		await (context.handleRouteCommand as (arg?: string) => Promise<void>).call(context, "on");
+		expect(getState().routeMode).toBe("auto");
+		expect(context.showStatus).toHaveBeenLastCalledWith("Route on (degraded)");
+
+		await (context.handleRouteCommand as (arg?: string) => Promise<void>).call(context, "status");
+		expect(context.showStatus).toHaveBeenLastCalledWith(
+			expect.stringContaining("Route ON (degraded) · Claude: claude-sonnet-4-6 [anthropic]"),
+		);
+
+		await (context.handleRouteCommand as (arg?: string) => Promise<void>).call(context, "off");
+		expect(getState().routeMode).toBe("manual");
+		expect(context.showStatus).toHaveBeenLastCalledWith("Route off · claude-sonnet-4-6 [anthropic]");
+	});
+});

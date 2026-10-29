@@ -22,7 +22,9 @@ type ModelScope = "all" | "scoped";
 
 export interface ModelSelectorOptions {
 	title?: string;
+	hint?: string;
 	provider?: string;
+	filter?: (model: Model<any>) => boolean;
 	saveAsDefault?: boolean;
 	onChangeProvider?: () => void;
 }
@@ -90,6 +92,9 @@ export class ModelSelectorComponent extends Container implements Focusable {
 		if (options.title) {
 			this.addChild(new Text(theme.bold(theme.fg("accent", options.title)), 0, 0));
 			this.addChild(new Spacer(1));
+		}
+		if (options.hint) {
+			this.addChild(new Text(theme.fg("muted", options.hint), 0, 0));
 		}
 
 		// Add hint about model filtering
@@ -172,7 +177,11 @@ export class ModelSelectorComponent extends Container implements Focusable {
 			return;
 		}
 
-		const filtered = models.filter((item) => !this.options.provider || item.provider === this.options.provider);
+		const filtered = models.filter(
+			(item) =>
+				(!this.options.provider || item.provider === this.options.provider) &&
+				(!this.options.filter || this.options.filter(item.model)),
+		);
 		this.allModels = this.sortModels(filtered);
 		this.scopedModels = this.scopedModels.map((scoped) => {
 			const refreshed = this.modelRegistry.find(scoped.model.provider, scoped.model.id);
