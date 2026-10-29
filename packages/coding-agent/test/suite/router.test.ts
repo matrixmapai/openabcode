@@ -11,6 +11,8 @@ import {
 	filterProjectSignalFiles,
 	pickRouteModel,
 	routeProviderOf,
+	suggestRouteClassifierModel,
+	suggestRouteFamilyModel,
 } from "../../src/core/router.ts";
 import { BUILTIN_SLASH_COMMANDS } from "../../src/core/slash-commands.ts";
 
@@ -68,10 +70,11 @@ describe("OpenABCode router", () => {
 		}
 	});
 
-	it("registers the route-model command", () => {
-		expect(BUILTIN_SLASH_COMMANDS.find((command) => command.name === "route-model")?.description).toContain(
-			"classify",
-		);
+	it("registers the unified route command without a separate route-model command", () => {
+		const routeCommand = BUILTIN_SLASH_COMMANDS.find((command) => command.name === "route");
+		expect(routeCommand?.description).toContain("routing");
+		expect(routeCommand?.argumentHint).toBe("[on|off|status]");
+		expect(BUILTIN_SLASH_COMMANDS.find((command) => command.name === "route-model")).toBeUndefined();
 	});
 
 	it("routeProviderOf maps direct providers", () => {
@@ -127,6 +130,38 @@ describe("OpenABCode router", () => {
 		expect(
 			pickRouteModel("anthropic", models, () => false, { anthropic: "anthropic/claude-opus-4-8" }),
 		).toBeUndefined();
+	});
+
+	it("suggestRouteClassifierModel prefers lightweight flash/haiku/mini models and skips image models", () => {
+		const models = [
+			model("google", "gemini-3.1-flash-lite-image"),
+			model("anthropic", "claude-opus-4-8"),
+			model("openrouter", "google/gemini-3.1-flash-lite"),
+			model(OPENABCODE_PROVIDER, "gemini-3.1-flash-lite"),
+		];
+		const picked = suggestRouteClassifierModel(models, () => true);
+		expect(picked?.provider).toBe(OPENABCODE_PROVIDER);
+		expect(picked?.id).toBe("gemini-3.1-flash-lite");
+
+		const fallback = suggestRouteClassifierModel(
+			[model("anthropic", "claude-opus-4-8"), model("anthropic", "claude-custom-mini")],
+			() => true,
+		);
+		expect(fallback?.id).toBe("claude-custom-mini");
+	});
+
+	it("suggestRouteFamilyModel picks the best model per family and respects auth", () => {
+		const models = [
+			model("openai", "gpt-4o"),
+			model("openai", "gpt-5.5"),
+			model("google", "gemini-3-pro-image"),
+			model("google", "gemini-3.1-pro-preview"),
+			model("openrouter", "anthropic/claude-sonnet-4.6"),
+		];
+		expect(suggestRouteFamilyModel("openai", models, () => true)?.id).toBe("gpt-5.5");
+		expect(suggestRouteFamilyModel("google", models, () => true)?.id).toBe("gemini-3.1-pro-preview");
+		expect(suggestRouteFamilyModel("anthropic", models, () => true)?.id).toBe("anthropic/claude-sonnet-4.6");
+		expect(suggestRouteFamilyModel("openai", models, () => false)).toBeUndefined();
 	});
 });
 

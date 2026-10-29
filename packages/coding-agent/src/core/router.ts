@@ -482,3 +482,104 @@ export function pickRouteModel(
 
 	return undefined;
 }
+
+const PREFERRED_CLASSIFIER_IDS: readonly string[] = [
+	"gemini-3.1-flash-lite",
+	"gemini-3.5-flash-lite",
+	"gemini-3.5-flash",
+	"gemini-3-flash-preview",
+	"claude-haiku-4.5",
+	"claude-haiku-4-5",
+	"claude-haiku-5-5",
+	"gpt-5.4-mini",
+	"gpt-5-mini",
+	"gpt-4.1-mini",
+	"gpt-4o-mini",
+];
+
+const PREFERRED_FAMILY_MODEL_IDS: Record<ProviderChoice, readonly string[]> = {
+	anthropic: [
+		"claude-opus-4-8",
+		"claude-opus-4.8",
+		"claude-sonnet-4.6",
+		"claude-sonnet-4-6",
+		"claude-opus-4-7",
+		"claude-opus-4.7",
+		"claude-sonnet-4.5",
+		"claude-sonnet-4-5",
+		"claude-opus-4-6",
+		"claude-opus-4.6",
+	],
+	openai: ["gpt-5.5", "gpt-5.4", "gpt-5.3-codex", "gpt-5.2", "gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o"],
+	google: [
+		"gemini-3.1-pro-preview",
+		"gemini-3.5-flash",
+		"gemini-3-flash-preview",
+		"gemini-3.8-flash",
+		"gemini-3.7-flash",
+		"gemini-3.6-flash",
+		"gemini-2.5-pro",
+		"gemini-2.5-flash",
+	],
+};
+
+function isImageGenerationModel(model: Model<Api>): boolean {
+	return /(^|[-_/])image([-_/]|$)/i.test(model.id);
+}
+
+function bareRouteModelId(model: Model<Api>): string {
+	return model.id.replace(/^(openai|google|anthropic)\//i, "").toLowerCase();
+}
+
+function routeProviderPreferenceRank(provider: string): number {
+	if (provider === OPENABCODE_PROVIDER) return 0;
+	if (isProviderChoice(provider)) return 1;
+	if (provider === OPENROUTER_PROVIDER) return 2;
+	return 3;
+}
+
+function sortByProviderPreference(models: Model<Api>[]): Model<Api>[] {
+	return [...models].sort((a, b) => routeProviderPreferenceRank(a.provider) - routeProviderPreferenceRank(b.provider));
+}
+
+/**
+ * Suggest a fast, lightweight authenticated model for the Route task classifier.
+ */
+export function suggestRouteClassifierModel(
+	models: Model<Api>[],
+	hasAuth: (model: Model<Api>) => boolean,
+): Model<Api> | undefined {
+	const candidates = sortByProviderPreference(
+		models.filter((m) => hasAuth(m) && routeProviderOf(m) !== undefined && !isImageGenerationModel(m)),
+	);
+	if (candidates.length === 0) return undefined;
+
+	for (const preferredId of PREFERRED_CLASSIFIER_IDS) {
+		const match = candidates.find((m) => bareRouteModelId(m) === preferredId);
+		if (match) return match;
+	}
+
+	const lightweight = candidates.find((m) => /(flash-lite|flash|haiku|mini|nano)/i.test(bareRouteModelId(m)));
+	return lightweight ?? candidates[0];
+}
+
+/**
+ * Suggest the best authenticated execution model for a Route provider family.
+ */
+export function suggestRouteFamilyModel(
+	family: ProviderChoice,
+	models: Model<Api>[],
+	hasAuth: (model: Model<Api>) => boolean,
+): Model<Api> | undefined {
+	const candidates = sortByProviderPreference(
+		models.filter((m) => hasAuth(m) && routeProviderOf(m) === family && !isImageGenerationModel(m)),
+	);
+	if (candidates.length === 0) return undefined;
+
+	for (const preferredId of PREFERRED_FAMILY_MODEL_IDS[family]) {
+		const match = candidates.find((m) => bareRouteModelId(m) === preferredId);
+		if (match) return match;
+	}
+
+	return candidates[0];
+}

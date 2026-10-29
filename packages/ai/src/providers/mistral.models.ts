@@ -38,6 +38,23 @@ export const MISTRAL_MODELS = {
 		contextWindow: 256000,
 		maxTokens: 4096,
 	} satisfies Model<"mistral-conversations">,
+	"deepseek-v4-1-flash-1017": {
+		id: "deepseek-v4-1-flash-1017",
+		name: "DeepSeek V4.1 Flash 1017",
+		api: "mistral-conversations",
+		provider: "mistral",
+		baseUrl: "https://api.mistral.ai",
+		reasoning: true,
+		input: ["text"],
+		cost: {
+			input: 0.3,
+			output: 1.2,
+			cacheRead: 0.007,
+			cacheWrite: 0,
+		},
+		contextWindow: 1048576,
+		maxTokens: 128000,
+	} satisfies Model<"mistral-conversations">,
 	"devstral-2512": {
 		id: "devstral-2512",
 		name: "Devstral 2",

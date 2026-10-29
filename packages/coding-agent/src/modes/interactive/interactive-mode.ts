@@ -87,7 +87,12 @@ import { defaultModelPerProvider, findExactModelReferenceMatch, resolveModelScop
 import { DefaultPackageManager } from "../../core/package-manager.ts";
 import { BUILT_IN_PROVIDER_DISPLAY_NAMES } from "../../core/provider-display-names.ts";
 import type { ResourceDiagnostic } from "../../core/resource-loader.ts";
-import { type ProviderChoice, routeProviderOf } from "../../core/router.ts";
+import {
+	type ProviderChoice,
+	routeProviderOf,
+	suggestRouteClassifierModel,
+	suggestRouteFamilyModel,
+} from "../../core/router.ts";
 import { formatMissingSessionCwdPrompt, MissingSessionCwdError } from "../../core/session-cwd.ts";
 import { type SessionEntry, SessionManager, sessionEntryToContextMessages } from "../../core/session-manager.ts";
 import { BUILTIN_SLASH_COMMANDS } from "../../core/slash-commands.ts";
@@ -171,6 +176,14 @@ const ROUTE_MODEL_LABELS: Record<ProviderChoice, string> = {
 	google: "Gemini",
 	anthropic: "Claude",
 };
+
+const ROUTE_FAMILY_ROLES: Record<ProviderChoice, string> = {
+	anthropic: "General dev",
+	openai: "Code review & testing",
+	google: "Google ecosystem",
+};
+
+const ROUTE_DASHBOARD_SLOTS: readonly ProviderChoice[] = ["anthropic", "openai", "google"];
 
 function isExpandable(obj: unknown): obj is Expandable {
 	return typeof obj === "object" && obj !== null && "setExpanded" in obj && typeof obj.setExpanded === "function";
@@ -929,7 +942,7 @@ export class InteractiveMode {
 			if (candidates.length === 0) {
 				this.showFirstRunOnboarding();
 			} else {
-				this.showRouteSelector("Route setup");
+				await this.showRouteSelector("Route setup");
 			}
 		}
 
@@ -2697,13 +2710,7 @@ export class InteractiveMode {
 			if (text === "/route" || text.startsWith("/route ")) {
 				const arg = text.startsWith("/route ") ? text.slice(7).trim() : undefined;
 				this.editor.setText("");
-				this.handleRouteCommand(arg);
-				return;
-			}
-			if (text === "/route-model" || text.startsWith("/route-model ")) {
-				const arg = text.startsWith("/route-model ") ? text.slice(13).trim() : undefined;
-				this.editor.setText("");
-				await this.handleRouteModelCommand(arg);
+				await this.handleRouteCommand(arg);
 				return;
 			}
 			if (text === "/export" || text.startsWith("/export ")) {
@@ -4358,11 +4365,14 @@ export class InteractiveMode {
 		const model = await this.findExactModelMatch(searchTerm);
 		if (model) {
 			try {
-				await this.session.setModel(model, { preserveRouteMode: this.session.routeMode === "auto" });
+				const wasAutoRoute = this.session.routeMode === "auto";
+				await this.session.setModel(model, { preserveRouteMode: wasAutoRoute });
 				this.saveRouteModelForFamily(model);
 				this.footer.invalidate();
 				this.updateEditorBorderColor();
-				this.showStatus(`Model: ${model.id}`);
+				const family = routeProviderOf(model);
+				const routeNote = wasAutoRoute && family ? ` (Route ${ROUTE_MODEL_LABELS[family]} slot updated)` : "";
+				this.showStatus(`Model: ${model.id}${routeNote}`);
 				void this.maybeWarnAboutAnthropicSubscriptionAuth(model);
 				this.checkDaxnutsEasterEgg(model);
 			} catch (error) {
@@ -4565,6 +4575,7 @@ export class InteractiveMode {
 	}
 
 	private showModelSelector(initialSearchInput?: string): void {
+		const isAutoRoute = this.session.routeMode === "auto";
 		this.showSelector((done) => {
 			const selector = new ModelSelectorComponent(
 				this.ui,
@@ -4574,12 +4585,15 @@ export class InteractiveMode {
 				this.session.scopedModels,
 				async (model) => {
 					try {
-						await this.session.setModel(model, { preserveRouteMode: this.session.routeMode === "auto" });
+						const wasAutoRoute = this.session.routeMode === "auto";
+						await this.session.setModel(model, { preserveRouteMode: wasAutoRoute });
 						this.saveRouteModelForFamily(model);
 						this.footer.invalidate();
 						this.updateEditorBorderColor();
 						done();
-						this.showStatus(`Model: ${model.id}`);
+						const family = routeProviderOf(model);
+						const routeNote = wasAutoRoute && family ? ` (Route ${ROUTE_MODEL_LABELS[family]} slot updated)` : "";
+						this.showStatus(`Model: ${model.id}${routeNote}`);
 						void this.maybeWarnAboutAnthropicSubscriptionAuth(model);
 						this.checkDaxnutsEasterEgg(model);
 					} catch (error) {
@@ -4592,6 +4606,7 @@ export class InteractiveMode {
 					this.ui.requestRender();
 				},
 				initialSearchInput,
+				isAutoRoute ? { hint: "Route is ON: selecting a model also updates its family slot in /route" } : undefined,
 			);
 			return { component: selector, focus: selector };
 		});
@@ -5727,25 +5742,124 @@ export class InteractiveMode {
 		}
 	}
 
-	private handleRouteCommand(arg: string | undefined): void {
-		if (arg) {
-			this.showError("Usage: /route");
+	private async handleRouteCommand(arg: string | undefined): Promise<void> {
+		if (!arg) {
+			await this.showRouteSelector();
 			return;
 		}
-		this.showRouteSelector();
+		const normalized = arg.toLowerCase();
+		if (normalized === "on") {
+			await this.enableRouteIfConfigured();
+			return;
+		}
+		if (normalized === "off") {
+			if (this.session.model) {
+				await this.session.setFixedModelAndDisableRouter(this.session.model);
+				this.footer.invalidate();
+				this.showStatus(`Route off · ${this.session.model.id} [${this.session.model.provider}]`);
+			} else {
+				await this.showFixedModelFlow(() => void this.showRouteSelector());
+			}
+			return;
+		}
+		if (normalized === "status") {
+			await this.showRouteStatusSummary();
+			return;
+		}
+		this.showError("Usage: /route [on|off|status]");
 	}
 
-	private async handleRouteModelCommand(arg: string | undefined): Promise<void> {
-		if (arg) {
-			this.showError("Usage: /route-model");
-			return;
+	private resolveRouteCandidate(reference: string | undefined, candidates: Model<any>[]): Model<any> | undefined {
+		if (!reference) return undefined;
+		const [provider, ...idParts] = reference.split("/");
+		const id = idParts.join("/");
+		if (!provider || !id) return undefined;
+		return candidates.find((model) => model.provider === provider && model.id === id);
+	}
+
+	private async ensureSmartRouteDefaults(existingCandidates?: Model<any>[]): Promise<{
+		candidates: Model<any>[];
+		classifier?: Model<any>;
+		families: Partial<Record<ProviderChoice, Model<any>>>;
+		configuredSlots: ProviderChoice[];
+		missingSlots: ProviderChoice[];
+		selectableMissingSlots: ProviderChoice[];
+	}> {
+		const candidates = existingCandidates ?? (await this.getModelCandidates());
+		const hasAuth = (model: Model<any>) => this.session.modelRegistry.hasConfiguredAuth(model);
+
+		let classifier = this.resolveRouteCandidate(this.settingsManager.getRouterClassifierModel(), candidates);
+		if (!classifier) {
+			const suggested = suggestRouteClassifierModel(candidates, hasAuth);
+			if (suggested) {
+				classifier = suggested;
+				this.settingsManager.setRouterClassifierModel(suggested.provider, suggested.id);
+			}
 		}
 
-		const configuredRef = this.settingsManager.getRouterClassifierModel();
-		const [configuredProvider, ...configuredIdParts] = configuredRef?.split("/") ?? [];
-		const configuredModel = configuredProvider
-			? this.session.modelRegistry.find(configuredProvider, configuredIdParts.join("/"))
-			: undefined;
+		const configured = this.settingsManager.getRouterModels();
+		const families: Partial<Record<ProviderChoice, Model<any>>> = {};
+		const configuredSlots: ProviderChoice[] = [];
+		const missingSlots: ProviderChoice[] = [];
+		const selectableMissingSlots: ProviderChoice[] = [];
+
+		for (const slot of ROUTE_DASHBOARD_SLOTS) {
+			const existing = this.resolveRouteCandidate(configured[slot], candidates);
+			if (existing && routeProviderOf(existing) === slot) {
+				families[slot] = existing;
+				configuredSlots.push(slot);
+				continue;
+			}
+			const suggested = suggestRouteFamilyModel(slot, candidates, hasAuth);
+			if (suggested) {
+				families[slot] = suggested;
+				this.settingsManager.setRouterModel(slot, `${suggested.provider}/${suggested.id}`);
+				configuredSlots.push(slot);
+				continue;
+			}
+			missingSlots.push(slot);
+			if (candidates.some((model) => routeProviderOf(model) === slot)) {
+				selectableMissingSlots.push(slot);
+			}
+		}
+
+		return {
+			candidates,
+			classifier,
+			families,
+			configuredSlots,
+			missingSlots,
+			selectableMissingSlots,
+		};
+	}
+
+	private async showRouteStatusSummary(): Promise<void> {
+		const resolved = await this.ensureSmartRouteDefaults();
+		const modeLabel =
+			this.session.routeMode === "auto"
+				? resolved.missingSlots.length > 0
+					? "ON (degraded)"
+					: "ON"
+				: "OFF (fixed model)";
+		const slotSummaries = ROUTE_DASHBOARD_SLOTS.map((slot) => {
+			const model = resolved.families[slot];
+			return `${ROUTE_MODEL_LABELS[slot]}: ${model ? `${model.id} [${model.provider}]` : "not configured"}`;
+		});
+		const classifierLabel = resolved.classifier
+			? `${resolved.classifier.id} [${resolved.classifier.provider}]`
+			: "not configured";
+		this.showStatus(`Route ${modeLabel} · ${slotSummaries.join(" · ")} · Classifier: ${classifierLabel}`);
+	}
+
+	private async showRouteClassifierSelector(
+		onDone?: () => void,
+		title = "Select Route classifier model",
+	): Promise<void> {
+		const candidates = await this.getModelCandidates();
+		const hasAuth = (model: Model<any>) => this.session.modelRegistry.hasConfiguredAuth(model);
+		const configuredModel =
+			this.resolveRouteCandidate(this.settingsManager.getRouterClassifierModel(), candidates) ??
+			suggestRouteClassifierModel(candidates, hasAuth);
 		this.showSelector((done) => {
 			const selector = new ModelSelectorComponent(
 				this.ui,
@@ -5755,15 +5869,79 @@ export class InteractiveMode {
 				[],
 				(model) => {
 					this.settingsManager.setRouterClassifierModel(model.provider, model.id);
+					this.footer.invalidate();
 					done();
 					this.showStatus(`Route model: ${model.id} [${model.provider}]`);
+					onDone?.();
 				},
 				() => {
 					done();
-					this.ui.requestRender();
+					if (onDone) {
+						onDone();
+					} else {
+						this.ui.requestRender();
+					}
 				},
 				undefined,
-				{ title: "Select Route classifier model", saveAsDefault: false },
+				{
+					title,
+					hint: "Fast, lightweight models (e.g. flash-lite, haiku, mini) work best for task classification.",
+					saveAsDefault: false,
+				},
+			);
+			return { component: selector, focus: selector };
+		});
+	}
+
+	private async showRouteFamilyModelSelector(
+		family: ProviderChoice,
+		onDone?: () => void,
+		customTitle?: string,
+	): Promise<void> {
+		const candidates = await this.getModelCandidates();
+		const familyCandidates = candidates.filter((model) => routeProviderOf(model) === family);
+		if (familyCandidates.length === 0) {
+			this.showWarning(
+				`No authenticated ${ROUTE_MODEL_LABELS[family]} models available. Run /login to configure a provider.`,
+			);
+			onDone?.();
+			return;
+		}
+		const hasAuth = (model: Model<any>) => this.session.modelRegistry.hasConfiguredAuth(model);
+		const configured = this.settingsManager.getRouterModels();
+		const currentModel =
+			this.resolveRouteCandidate(configured[family], familyCandidates) ??
+			suggestRouteFamilyModel(family, familyCandidates, hasAuth);
+
+		this.showSelector((done) => {
+			const selector = new ModelSelectorComponent(
+				this.ui,
+				currentModel,
+				this.settingsManager,
+				this.session.modelRegistry,
+				[],
+				(model) => {
+					this.settingsManager.setRouterModel(family, `${model.provider}/${model.id}`);
+					this.footer.invalidate();
+					done();
+					this.showStatus(`Route ${ROUTE_MODEL_LABELS[family]}: ${model.id} [${model.provider}]`);
+					onDone?.();
+				},
+				() => {
+					done();
+					if (onDone) {
+						onDone();
+					} else {
+						this.ui.requestRender();
+					}
+				},
+				undefined,
+				{
+					title: customTitle ?? `Select ${ROUTE_MODEL_LABELS[family]} model · ${ROUTE_FAMILY_ROLES[family]}`,
+					hint: `Filtered to ${ROUTE_MODEL_LABELS[family]} (${family}) family models`,
+					filter: (model) => routeProviderOf(model) === family,
+					saveAsDefault: false,
+				},
 			);
 			return { component: selector, focus: selector };
 		});
@@ -5774,57 +5952,111 @@ export class InteractiveMode {
 		void this.handleLoginCommand();
 	}
 
-	private showRouteSelector(title = "Route"): void {
+	private async showRouteSelector(title = "Route", selectedValue?: string): Promise<void> {
+		const resolved = await this.ensureSmartRouteDefaults();
+		if (resolved.candidates.length === 0) {
+			this.showStatus("No configured providers. Opening login...");
+			void this.handleLoginCommand();
+			return;
+		}
+
+		const isAuto = this.session.routeMode === "auto";
+		const readyCount = resolved.configuredSlots.length;
+		const items = [
+			{
+				value: "on",
+				label: isAuto ? "● on (active)" : "○ on",
+				description:
+					readyCount >= 2 && resolved.classifier
+						? `Route each task to ChatGPT, Gemini, or Claude (${readyCount}/3 families ready)`
+						: "Route each task to ChatGPT, Gemini, or Claude (will guide setup)",
+			},
+			{
+				value: "off",
+				label: !isAuto ? "● off (fixed model)" : "○ off",
+				description: "Always use one fixed model",
+			},
+			...ROUTE_DASHBOARD_SLOTS.map((slot) => {
+				const model = resolved.families[slot];
+				return {
+					value: `family:${slot}`,
+					label: `${model ? "✓" : "!"} ${ROUTE_MODEL_LABELS[slot]} (${slot})`,
+					description: model
+						? `${model.id} [${model.provider}] · ${ROUTE_FAMILY_ROLES[slot]}`
+						: `Not configured · ${ROUTE_FAMILY_ROLES[slot]} (Enter to select)`,
+				};
+			}),
+			{
+				value: "classifier",
+				label: `${resolved.classifier ? "⚙" : "!"} Classifier model`,
+				description: resolved.classifier
+					? `${resolved.classifier.id} [${resolved.classifier.provider}] · Classifies tasks`
+					: "Not configured (Enter to select classifier)",
+			},
+		];
+
+		const defaultSelection = selectedValue ?? (isAuto ? "on" : "off");
 		this.showSelector((done) => {
 			const selector = new ChoiceSelectorComponent(
 				title,
-				[
-					{ value: "on", label: "on", description: "Route each task to ChatGPT, Gemini, or Claude" },
-					{ value: "off", label: "off", description: "Always use one fixed model" },
-				],
-				this.session.routeMode === "auto" ? "on" : "off",
+				items,
+				defaultSelection,
 				(value) => {
 					done();
-					if (value === "on") void this.enableRouteIfConfigured();
-					else void this.showFixedModelFlow(() => this.showRouteSelector());
+					if (value === "on") {
+						void this.enableRouteIfConfigured();
+						return;
+					}
+					if (value === "off") {
+						void this.showFixedModelFlow(() => void this.showRouteSelector(title, "off"));
+						return;
+					}
+					if (value === "classifier") {
+						void this.showRouteClassifierSelector(() => void this.showRouteSelector(title, "classifier"));
+						return;
+					}
+					if (value.startsWith("family:")) {
+						const slot = value.slice("family:".length) as ProviderChoice;
+						void this.showRouteFamilyModelSelector(slot, () => void this.showRouteSelector(title, value));
+					}
 				},
 				done,
+				"Enter to toggle or customize slot · Esc to close",
 			);
 			return { component: selector, focus: selector.getSelectList() };
 		});
 	}
 
 	private async enableRouteIfConfigured(): Promise<void> {
-		const models = await this.getModelCandidates();
-		const classifierRef = this.settingsManager.getRouterClassifierModel();
-		const [classifierProvider, ...classifierIdParts] = classifierRef?.split("/") ?? [];
-		const classifier = classifierProvider
-			? this.session.modelRegistry.find(classifierProvider, classifierIdParts.join("/"))
-			: undefined;
-		if (!classifier || !this.session.modelRegistry.hasConfiguredAuth(classifier)) {
+		const resolved = await this.ensureSmartRouteDefaults();
+		if (resolved.candidates.length === 0) {
 			this.session.setRouteMode("manual");
 			this.settingsManager.setRouterEnabledAndSetupCompleted(false);
 			this.footer.invalidate();
-			if (models.length === 0) {
-				this.showStatus("No configured providers. Opening login...");
-				void this.handleLoginCommand();
-			} else {
-				this.showWarning("Route classifier model is missing or unavailable. Run /route-model.");
-				this.showStatus("Route off");
-			}
+			this.showStatus("No configured providers. Opening login...");
+			void this.handleLoginCommand();
 			return;
 		}
-		const configured = this.settingsManager.getRouterModels();
-		const slots: ProviderChoice[] = ["openai", "google", "anthropic"];
-		const missing = slots.filter((slot) => {
-			const reference = configured[slot];
-			if (!reference) return true;
-			return !models.some(
-				(model) => `${model.provider}/${model.id}` === reference && routeProviderOf(model) === slot,
-			);
-		});
 
-		if (missing.length === 0) {
+		if (!resolved.classifier) {
+			await this.showRouteClassifierSelector(
+				() => void this.enableRouteIfConfigured(),
+				"Route setup · Select task classifier model",
+			);
+			return;
+		}
+
+		if (resolved.configuredSlots.length < 2 && resolved.selectableMissingSlots.length > 0) {
+			const nextSlot = resolved.selectableMissingSlots[0]!;
+			await this.showRouteFamilyModelSelector(
+				nextSlot,
+				() => void this.enableRouteIfConfigured(),
+				`Route setup · Select ${ROUTE_MODEL_LABELS[nextSlot]} model (${ROUTE_FAMILY_ROLES[nextSlot]})`,
+			);
+			return;
+		}
+
+		if (resolved.missingSlots.length === 0) {
 			this.session.setRouteMode("auto");
 			this.settingsManager.setRouterEnabledAndSetupCompleted(true);
 			this.footer.invalidate();
@@ -5833,12 +6065,12 @@ export class InteractiveMode {
 		}
 
 		// Two configured families are enough: routing degrades to the available set.
-		if (slots.length - missing.length >= 2) {
+		if (resolved.configuredSlots.length >= 2) {
 			this.session.setRouteMode("auto");
 			this.settingsManager.setRouterEnabledAndSetupCompleted(true);
 			this.footer.invalidate();
 			this.showWarning(
-				`Route is degraded, missing: ${missing.map((slot) => ROUTE_MODEL_LABELS[slot]).join(", ")}. Configure via /model.`,
+				`Route is degraded, missing: ${resolved.missingSlots.map((slot) => ROUTE_MODEL_LABELS[slot]).join(", ")}. Configure via /route.`,
 			);
 			this.showStatus("Route on (degraded)");
 			return;
@@ -5847,7 +6079,9 @@ export class InteractiveMode {
 		this.session.setRouteMode("manual");
 		this.settingsManager.setRouterEnabledAndSetupCompleted(false);
 		this.footer.invalidate();
-		this.showWarning(`Route is missing: ${missing.map((slot) => ROUTE_MODEL_LABELS[slot]).join(", ")}.`);
+		this.showWarning(
+			`Route requires at least 2 model families (missing: ${resolved.missingSlots.map((slot) => ROUTE_MODEL_LABELS[slot]).join(", ")}). Configure providers with /login.`,
+		);
 		this.showStatus("Route off");
 	}
 

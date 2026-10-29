@@ -44,7 +44,7 @@ export const CLOUDFLARE_WORKERS_AI_MODELS = {
 	} satisfies Model<"openai-completions">,
 	"@cf/deepseek-ai/deepseek-v4.1-flash-1017": {
 		id: "@cf/deepseek-ai/deepseek-v4.1-flash-1017",
-		name: "Deepseek V4.1 Flash 1017",
+		name: "DeepSeek V4.1 Flash 1017",
 		api: "openai-completions",
 		provider: "cloudflare-workers-ai",
 		baseUrl: "https://api.cloudflare.com/client/v4/accounts/{CLOUDFLARE_ACCOUNT_ID}/ai/v1",
