@@ -258,7 +258,7 @@ export const CLOUDFLARE_AI_GATEWAY_MODELS = {
 		cost: {
 			input: 2,
 			output: 10,
-			cacheRead: 0.2,
+			cacheRead: 0.1,
 			cacheWrite: 2.5,
 		},
 		contextWindow: 1000000,
