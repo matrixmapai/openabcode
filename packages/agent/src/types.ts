@@ -77,6 +77,7 @@ export interface BeforeToolCallResult {
 export interface AfterToolCallResult {
 	content?: (TextContent | ImageContent)[];
 	details?: unknown;
+	structuredContent?: unknown;
 	isError?: boolean;
 	/**
 	 * Hint that the agent should stop after the current tool batch.
@@ -353,6 +354,16 @@ export interface AgentToolResult<T> {
 	/** Arbitrary structured details for logs or UI rendering. */
 	details: T;
 	/**
+	 * Machine-readable result matching the tool's `outputSchema`, for programmatic callers. Not sent
+	 * to the model; `content` remains the model-facing result.
+	 */
+	structuredContent?: unknown;
+	/**
+	 * Report a failure without throwing. The model sees `content` as an error result, like a thrown
+	 * error, but `details` and `structuredContent` are kept for the UI and programmatic callers.
+	 */
+	isError?: boolean;
+	/**
 	 * Hint that the agent should stop after the current tool batch.
 	 * Early termination only happens when every finalized tool result in the batch sets this to true.
 	 */
@@ -376,7 +387,12 @@ export interface AgentTool<TParameters extends TSchema = TSchema, TDetails = any
 	 * Must return an object that matches `TParameters`.
 	 */
 	prepareArguments?: (args: unknown) => Static<TParameters>;
-	/** Execute the tool call. Throw on failure instead of encoding errors in `content`. */
+	/**
+	 * JSON Schema of `structuredContent` in successful results. Tools that declare it should always
+	 * set `structuredContent`.
+	 */
+	outputSchema?: TSchema;
+	/** Execute the tool call. Throw on failure, or return a result with `isError: true`. */
 	execute: (
 		toolCallId: string,
 		params: Static<TParameters>,

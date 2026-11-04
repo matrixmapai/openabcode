@@ -42,6 +42,8 @@ Authenticate with `/login` for subscription providers, or set an API key such as
 
 For the full first-run flow, see [Quickstart](quickstart.md).
 
+To connect external tools and data, follow the [MCP tutorial](mcp.md#quick-setup): add a local or remote server, verify the connection, and use its tools in your first session.
+
 ## Start here
 
 - [Quickstart](quickstart.md) - install, authenticate, and run a first session.
@@ -57,6 +59,7 @@ For the full first-run flow, see [Quickstart](quickstart.md).
 ## Customization
 
 - [Extensions](extensions.md) - TypeScript modules for tools, commands, events, and custom UI.
+- [MCP servers](mcp.md) - step-by-step setup, first tool call, project configuration, OAuth, resources, and SDK/RPC usage.
 - [Skills](skills.md) - Agent Skills for reusable on-demand capabilities.
 - [Prompt templates](prompt-templates.md) - reusable prompts that expand from slash commands.
 - [Themes](themes.md) - built-in and custom terminal themes.

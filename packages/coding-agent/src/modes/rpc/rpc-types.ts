@@ -10,6 +10,7 @@ import type { ImageContent, Model } from "@openabcode/ai";
 import type { SessionStats } from "../../core/agent-session.ts";
 import type { BashResult } from "../../core/bash-executor.ts";
 import type { CompactionResult } from "../../core/compaction/index.ts";
+import type { McpStatusSnapshot } from "../../core/mcp-servers.ts";
 import type { SessionEntry, SessionTreeNode } from "../../core/session-manager.ts";
 import type { SourceInfo } from "../../core/source-info.ts";
 
@@ -27,6 +28,7 @@ export type RpcCommand =
 
 	// State
 	| { id?: string; type: "get_state" }
+	| { id?: string; type: "get_mcp_status" }
 
 	// Model
 	| { id?: string; type: "set_model"; provider: string; modelId: string }
@@ -121,6 +123,7 @@ export type RpcResponse =
 
 	// State
 	| { id?: string; type: "response"; command: "get_state"; success: true; data: RpcSessionState }
+	| { id?: string; type: "response"; command: "get_mcp_status"; success: true; data: McpStatusSnapshot }
 
 	// Model
 	| {

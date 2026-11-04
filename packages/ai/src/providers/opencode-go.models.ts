@@ -41,7 +41,7 @@ export const OPENCODE_GO_MODELS = {
 	} satisfies Model<"anthropic-messages">,
 	"deepseek-v4-pro": {
 		id: "deepseek-v4-pro",
-		name: "DeepSeek V4 Pro (New)",
+		name: "DeepSeek V4 Pro",
 		api: "openai-completions",
 		provider: "opencode-go",
 		baseUrl: "https://opencode.ai/zen/go/v1",

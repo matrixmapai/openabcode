@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-04
+
+### Added
+
+- Added `isError` and `structuredContent` support on `AgentToolResult` and `AfterToolCallResult`, and `outputSchema` on `AgentTool`.
+
 ## [1.2.0] - 2026-10-29
 
 ## [1.1.2] - 2026-10-27

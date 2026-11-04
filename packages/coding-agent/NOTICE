@@ -2,6 +2,7 @@ Portions of this software are derived from Pi (pi-mono)
 (https://github.com/earendil-works/pi).
 
 Copyright (c) 2025 Mario Zechner and Pi contributors
+Copyright (c) 2024 Anthropic, PBC (portions of @earendil-works/pi-mcp derived from @modelcontextprotocol/sdk)
 Licensed under the MIT License.
 
 The full text of the MIT License:

@@ -5,6 +5,7 @@
  * Usage:
  *   node scripts/release.mjs <major|minor|patch>
  *   node scripts/release.mjs <x.y.z>
+ *   node scripts/release.mjs <minor|patch|x.y.z> --no-push
  *
  * Steps:
  * 1. Check for uncommitted changes
@@ -23,11 +24,13 @@ import { readFileSync, writeFileSync, readdirSync, existsSync } from "fs";
 import { join } from "path";
 
 const RELEASE_TARGET = process.argv[2];
+const RELEASE_OPTIONS = process.argv.slice(3);
+const NO_PUSH = RELEASE_OPTIONS.includes("--no-push");
 const BUMP_TYPES = new Set(["major", "minor", "patch"]);
 const SEMVER_RE = /^\d+\.\d+\.\d+$/;
 
-if (!RELEASE_TARGET || (!BUMP_TYPES.has(RELEASE_TARGET) && !SEMVER_RE.test(RELEASE_TARGET))) {
-	console.error("Usage: node scripts/release.mjs <major|minor|patch|x.y.z>");
+if (!RELEASE_TARGET || (!BUMP_TYPES.has(RELEASE_TARGET) && !SEMVER_RE.test(RELEASE_TARGET)) || RELEASE_OPTIONS.some((option) => option !== "--no-push")) {
+	console.error("Usage: node scripts/release.mjs <major|minor|patch|x.y.z> [--no-push]");
 	process.exit(1);
 }
 
@@ -199,10 +202,14 @@ stageChangedFiles();
 run(`git commit -m "Add [Unreleased] section for next cycle"`);
 console.log();
 
-// 9. Push
-console.log("Pushing to remote...");
-run("git push origin main");
-run(`git push origin v${version}`);
+// 9. Push (or leave local commits/tag for the protected-main PR workflow).
+if (NO_PUSH) {
+	console.log(`Skipping remote pushes. Merge a release PR first, then push v${version} to publish.`);
+} else {
+	console.log("Pushing to remote...");
+	run("git push origin main");
+	run(`git push origin v${version}`);
+}
 console.log();
 
 console.log(`=== Prepared release v${version}; CI publishing starts after the tag push ===`);

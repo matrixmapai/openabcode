@@ -192,6 +192,22 @@ Response:
 
 The `model` field is a full [Model](#model) object or `null`. The `sessionName` field is the display name set via `set_session_name`, or omitted if not set.
 
+#### get_mcp_status
+
+Query live MCP status without a model request or interactive prompt:
+
+```json
+{"id":"mcp-1","type":"get_mcp_status"}
+```
+
+```json
+{"id":"mcp-1","type":"response","command":"get_mcp_status","success":true,"data":{"servers":[],"errors":[],"overridden":[]}}
+```
+
+`servers` includes file-configured and extension-registered entries with name, source/scope, enabled state, exposure, sanitized transport/error, connection `state`, tools, and resource capability. States are `starting`, `disabled`, `connecting`, `connected`, `disconnected`, `needs-auth`, `failed`, and `closed`; a disabled server has `enabled: false` and state `disabled`. Headers, environment, OAuth tokens, and raw configuration are not returned. `errors` contains configuration failures; `overridden` names file entries that take precedence over extension registrations.
+
+Connections start in the background. Query once, then consume `mcp_status_change` events (`{"type":"mcp_status_change","servers":[...],"errors":[...],"overridden":[...]}`) as discovery, reconnect, or authentication changes the snapshot. `--no-mcp` returns an empty snapshot. RPC never opens the MCP sign-in browser; run `openabcode mcp login <server>` separately. See [MCP](mcp.md).
+
 #### get_messages
 
 Get all messages in the conversation.
@@ -824,6 +840,7 @@ Events are streamed to stdout as JSON lines during agent operation. Events do NO
 | `auto_retry_start` | Auto-retry begins (after transient error) |
 | `auto_retry_end` | Auto-retry completes (success or final failure) |
 | `extension_error` | Extension threw an error |
+| `mcp_status_change` | Credential-free MCP server/configuration status snapshot changed |
 
 ### agent_start
 

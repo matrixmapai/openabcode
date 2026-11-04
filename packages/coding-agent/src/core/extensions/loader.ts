@@ -27,12 +27,20 @@ import { resolvePath } from "../../utils/paths.ts";
 import { createEventBus, type EventBus } from "../event-bus.ts";
 import type { ExecOptions } from "../exec.ts";
 import { execCommand } from "../exec.ts";
+import {
+	type McpServerConfig,
+	McpServerRegistry,
+	type McpStatusSnapshot,
+	mcpNamespace,
+	validateMcpServerConfig,
+} from "../mcp-servers.ts";
 import { createSyntheticSourceInfo } from "../source-info.ts";
 import { time } from "../timings.ts";
 import type {
 	EntryRenderer,
 	Extension,
 	ExtensionAPI,
+	ExtensionContext,
 	ExtensionFactory,
 	ExtensionRuntime,
 	LoadExtensionsResult,
@@ -40,6 +48,7 @@ import type {
 	ProviderConfig,
 	RegisteredCommand,
 	ToolDefinition,
+	ToolRendererResolver,
 } from "./types.ts";
 
 /** Modules available to extensions via virtualModules (for compiled Bun binary) */
@@ -186,6 +195,7 @@ export function createExtensionRuntime(): ExtensionRuntime {
 		setThinkingLevel: notInitialized,
 		flagValues: new Map(),
 		pendingProviderRegistrations: [],
+		mcpServers: new McpServerRegistry(),
 		assertActive,
 		invalidate: (message) => {
 			state.staleMessage ??=
@@ -247,7 +257,7 @@ function createExtensionAPI(
 			shortcut: KeyId,
 			options: {
 				description?: string;
-				handler: (ctx: import("./types.ts").ExtensionContext) => Promise<void> | void;
+				handler: (ctx: ExtensionContext) => Promise<void> | void;
 			},
 		): void {
 			runtime.assertActive();
@@ -274,6 +284,12 @@ function createExtensionAPI(
 			runtime.assertActive();
 			extension.entryRenderers ??= new Map();
 			extension.entryRenderers.set(customType, renderer as EntryRenderer);
+		},
+
+		registerToolRenderer(resolver: ToolRendererResolver): void {
+			runtime.assertActive();
+			extension.toolRenderers ??= [];
+			extension.toolRenderers.push(resolver);
 		},
 
 		// Flag access - checks extension registered it, reads from runtime
@@ -362,6 +378,43 @@ function createExtensionAPI(
 		unregisterProvider(name: string) {
 			runtime.assertActive();
 			runtime.unregisterProvider(name, extension.path);
+		},
+
+		registerMcpServer(name: string, config: McpServerConfig) {
+			runtime.assertActive();
+			const validated = validateMcpServerConfig(name, config);
+			if (typeof validated === "string") {
+				throw new Error(`Invalid MCP server registered by extension "${extension.path}": ${validated}`);
+			}
+			const owner = runtime.mcpServers.get(name)?.extensionPath;
+			if (owner !== undefined && owner !== extension.path) {
+				throw new Error(`MCP server "${name}" is already registered by extension "${owner}"`);
+			}
+			const clash = runtime.mcpServers
+				.list()
+				.find((server) => server.name !== name && mcpNamespace(server.name) === mcpNamespace(name));
+			if (clash) throw new Error(`MCP server "${name}" conflicts with registered server "${clash.name}"`);
+			runtime.mcpServers.register({ name, config: structuredClone(validated), extensionPath: extension.path });
+		},
+
+		unregisterMcpServer(name: string) {
+			runtime.assertActive();
+			runtime.mcpServers.unregister(name, extension.path);
+		},
+
+		getMcpServers() {
+			runtime.assertActive();
+			return runtime.mcpServers.list();
+		},
+
+		getMcpStatus() {
+			runtime.assertActive();
+			return runtime.mcpServers.status();
+		},
+
+		setMcpStatus(status: McpStatusSnapshot) {
+			runtime.assertActive();
+			runtime.mcpServers.updateStatus(status);
 		},
 
 		events: eventBus,

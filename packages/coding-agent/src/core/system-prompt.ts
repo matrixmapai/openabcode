@@ -16,12 +16,30 @@ export interface BuildSystemPromptOptions {
 	promptGuidelines?: string[];
 	/** Text to append to system prompt. */
 	appendSystemPrompt?: string;
+	/** Additional XML-wrapped prompt sections keyed by tag name. */
+	sections?: Record<string, string>;
 	/** Working directory. */
 	cwd: string;
 	/** Pre-loaded context files. */
 	contextFiles?: Array<{ path: string; content: string }>;
 	/** Pre-loaded skills. */
 	skills?: Skill[];
+}
+
+const SYSTEM_PROMPT_SECTION_NAME = /^[a-z][a-z0-9_-]*$/;
+
+function renderCustomSections(sections: Record<string, string> | undefined): string {
+	if (!sections) return "";
+	let rendered = "";
+	for (const [name, content] of Object.entries(sections)) {
+		if (!SYSTEM_PROMPT_SECTION_NAME.test(name) || name === "preamble") {
+			throw new Error(`Invalid system prompt section name: ${name}`);
+		}
+		if (content) {
+			rendered += `\n\n<${name}>\n${content}\n</${name}>`;
+		}
+	}
+	return rendered;
 }
 
 /** Build the system prompt with tools, guidelines, and context */
@@ -76,6 +94,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
 		// Add date and working directory last
 		prompt += `\nCurrent date: ${date}`;
 		prompt += `\nCurrent working directory: ${promptCwd}`;
+		prompt += renderCustomSections(options.sections);
 
 		return prompt;
 	}
@@ -142,7 +161,7 @@ OpenABCode documentation (read only when the user asks about openabcode itself, 
 - Additional docs: ${docsPath}
 - Examples: ${examplesPath} (extensions, custom tools, SDK)
 - When reading openabcode docs or examples, resolve docs/... under Additional docs and examples/... under Examples, not the current working directory
-- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), openabcode packages (docs/packages.md)
+- When asked about: extensions (docs/extensions.md, examples/extensions/), themes (docs/themes.md), skills (docs/skills.md), prompt templates (docs/prompt-templates.md), TUI components (docs/tui.md), keybindings (docs/keybindings.md), SDK integrations (docs/sdk.md), custom providers (docs/custom-provider.md), adding models (docs/models.md), openabcode packages (docs/packages.md), MCP servers (docs/mcp.md)
 - When working on openabcode topics, read the docs and examples, and follow .md cross-references before implementing
 - Always read openabcode .md files completely and follow links to related docs (e.g., tui.md for TUI API details)`;
 
@@ -168,6 +187,7 @@ OpenABCode documentation (read only when the user asks about openabcode itself, 
 	// Add date and working directory last
 	prompt += `\nCurrent date: ${date}`;
 	prompt += `\nCurrent working directory: ${promptCwd}`;
+	prompt += renderCustomSections(options.sections);
 
 	return prompt;
 }

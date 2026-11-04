@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-11-04
+
+### New Features
+
+- **Built-in MCP support**: connect local stdio and Streamable HTTP servers, configure them at user/project scope, and manage connections with `/mcp` or `openabcode mcp`. See the [MCP setup tutorial](docs/mcp.md#quick-setup).
+- **On-demand tool discovery**: find tools with `tool_search`, control direct/deferred/hidden exposure, and keep loaded tools across session branches and reloads. See [tool exposure](docs/mcp.md#control-tool-exposure).
+- **OAuth, resources, and programmatic integration**: sign in to remote MCP servers, read resources, and use credential-free status snapshots through SDK/RPC. See [OAuth](docs/mcp.md#authenticate-with-oauth), [resources](docs/mcp.md#use-resources), and [SDK integration](docs/mcp.md#use-mcp-from-the-sdk).
+
+### Breaking Changes
+
+- `AgentSession.dispose()` now returns `Promise<void>`; await it to finish extension shutdown and MCP process cleanup.
+
+### Added
+
+- Added built-in MCP client integration (`createMcpExtension()`) supporting `stdio` and Streamable HTTP transports, user (`~/.openabcode/agent/mcp.json`) and project (`.openabcode/mcp.json`) configurations, `/mcp` interactive manager, and `openabcode mcp <add|remove|list|login|logout>` CLI commands, plus `--no-mcp` to disable built-in MCP.
+- Added `deferred` (default), `direct`, and `hidden` tool exposure modes with per-tool `toolExposure` overrides, BM25-based `tool_search` (`createToolSearchExtension()`), `<mcp_servers>` system prompt summaries, `notifications/tools/list_changed` dynamic updates, and branch-aware session restoration across resume, fork, `/tree`, and `/reload`.
+- Added MCP OAuth 2.1 authentication (PKCE, dynamic client registration, pre-registered client credentials, cross-process locked token refresh, scope step-up, and SSH redirect URL paste) and MCP resource tools (`list_mcp_resources`, `list_mcp_resource_templates`, `read_mcp_resource`).
+- Added `registerMcpServer()`, `unregisterMcpServer()`, `getMcpServers()`, `mcp_servers_change`, and `registerToolRenderer()` on `ExtensionAPI`.
+- Added credential-free `getMcpStatus()` snapshots for SDK/extensions, RPC `get_mcp_status`, streamed `mcp_status_change` events, and dedicated protocol conformance CI.
+- Preserve tool-returned `isError`, `structuredContent`, and declared `outputSchema` through the agent pipeline, including MCP results and extension hooks.
+
+### Fixed
+
+- Revalidate MCP tool availability and current arguments after reconnect/session-expiry retry; withdrawn tools cannot execute through an older request snapshot.
+- Await idempotent SDK extension shutdown on disposal and restart MCP after headless `/reload`; document required extension binding.
+- Redact secrets from MCP stderr, connection errors, status reports, and log notifications.
+- Apply shared project-trust rules to MCP shell commands and avoid reading untrusted project files for removal suggestions.
+
 ## [1.2.0] - 2026-10-29
 
 ### Added

@@ -22,5 +22,5 @@ try {
 	});
 	console.log();
 } finally {
-	session.dispose();
+	await session.dispose();
 }

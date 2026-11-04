@@ -53,6 +53,10 @@
           "path": "extensions.md"
         },
         {
+          "title": "MCP Servers",
+          "path": "mcp.md"
+        },
+        {
           "title": "Skills",
           "path": "skills.md"
         },

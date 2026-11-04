@@ -10,6 +10,7 @@ import type { ImageContent } from "@openabcode/ai";
 import type { AgentSessionEvent, SessionStats } from "../../core/agent-session.ts";
 import type { BashResult } from "../../core/bash-executor.ts";
 import type { CompactionResult } from "../../core/compaction/index.ts";
+import type { McpStatusSnapshot } from "../../core/mcp-servers.ts";
 import type { SessionEntry, SessionTreeNode } from "../../core/session-manager.ts";
 import { attachJsonlLineReader, serializeJsonLine } from "./jsonl.ts";
 import type { RpcCommand, RpcResponse, RpcSessionState, RpcSlashCommand } from "./rpc-types.ts";
@@ -235,6 +236,11 @@ export class RpcClient {
 	async getState(): Promise<RpcSessionState> {
 		const response = await this.send({ type: "get_state" });
 		return this.getData(response);
+	}
+
+	/** Credential-free connection status for all configured MCP servers. */
+	async getMcpStatus(): Promise<McpStatusSnapshot> {
+		return this.getData(await this.send({ type: "get_mcp_status" }));
 	}
 
 	/**

@@ -1,0 +1,31 @@
+name: MCP conformance
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/mcp-conformance.yml'
+      - 'package-lock.json'
+      - 'packages/coding-agent/src/core/**'
+      - 'packages/coding-agent/src/extensions/**'
+      - 'packages/coding-agent/test/mcp-conformance/**'
+
+permissions:
+  contents: read
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Run local protocol conformance without production credentials
+        env:
+          OPENABCODE_CODING_AGENT_DIR: ${{ runner.temp }}/openabcode-mcp-agent
+        run: npm run test:mcp-conformance
