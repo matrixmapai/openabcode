@@ -94,15 +94,28 @@ if [[ "$SKIP_DEPS" == "false" ]]; then
     # npm ci only installs optional deps for the current platform
     # We need the base clipboard package and all platform bindings for bun cross-compilation
     # Use --force to bypass platform checks (os/cpu restrictions in package.json)
-    # Install all in one command to avoid npm removing packages from previous installs
-    npm install --include=optional --no-save --package-lock=false --force --ignore-scripts \
-        @mariozechner/clipboard@"$CLIPBOARD_VERSION" \
-        @mariozechner/clipboard-darwin-arm64@"$CLIPBOARD_VERSION" \
-        @mariozechner/clipboard-darwin-x64@"$CLIPBOARD_VERSION" \
-        @mariozechner/clipboard-linux-x64-gnu@"$CLIPBOARD_VERSION" \
-        @mariozechner/clipboard-linux-arm64-gnu@"$CLIPBOARD_VERSION" \
-        @mariozechner/clipboard-win32-x64-msvc@"$CLIPBOARD_VERSION" \
-        @mariozechner/clipboard-win32-arm64-msvc@"$CLIPBOARD_VERSION"
+    # Install in an isolated package: a workspace npm install would re-resolve all
+    # dependencies and reject recently reviewed, locked versions such as pi-mcp.
+    # Retain the repository's age gate for the native bindings themselves.
+    BINDINGS_DIR=$(mktemp -d)
+    trap 'rm -rf "$BINDINGS_DIR"' EXIT
+    cp .npmrc "$BINDINGS_DIR/.npmrc"
+    printf '{"private":true}\n' > "$BINDINGS_DIR/package.json"
+    (
+        cd "$BINDINGS_DIR"
+        npm install --include=optional --no-save --package-lock=false --force --ignore-scripts \
+            @mariozechner/clipboard@"$CLIPBOARD_VERSION" \
+            @mariozechner/clipboard-darwin-arm64@"$CLIPBOARD_VERSION" \
+            @mariozechner/clipboard-darwin-x64@"$CLIPBOARD_VERSION" \
+            @mariozechner/clipboard-linux-x64-gnu@"$CLIPBOARD_VERSION" \
+            @mariozechner/clipboard-linux-arm64-gnu@"$CLIPBOARD_VERSION" \
+            @mariozechner/clipboard-win32-x64-msvc@"$CLIPBOARD_VERSION" \
+            @mariozechner/clipboard-win32-arm64-msvc@"$CLIPBOARD_VERSION"
+    )
+    mkdir -p node_modules/@mariozechner
+    cp -R "$BINDINGS_DIR/node_modules/@mariozechner/." node_modules/@mariozechner/
+    rm -rf "$BINDINGS_DIR"
+    trap - EXIT
 else
     echo "==> Skipping cross-platform native bindings (--skip-deps)"
 fi
