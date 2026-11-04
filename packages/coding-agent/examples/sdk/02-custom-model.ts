@@ -48,6 +48,6 @@ if (available.length > 0) {
 		await session.prompt("Say hello in one sentence.");
 		console.log();
 	} finally {
-		session.dispose();
+		await session.dispose();
 	}
 }

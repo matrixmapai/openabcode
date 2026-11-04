@@ -9,6 +9,7 @@
 			"version": "1.2.0",
 			"license": "AGPL-3.0",
 			"dependencies": {
+				"@earendil-works/pi-mcp": "1.5.0",
 				"@openabcode/agent-core": "^1.2.0",
 				"@openabcode/ai": "^1.2.0",
 				"@openabcode/tui": "^1.2.0",
@@ -471,6 +472,18 @@
 			"license": "MIT",
 			"engines": {
 				"node": ">=6.9.0"
+			}
+		},
+		"node_modules/@earendil-works/pi-mcp": {
+			"version": "1.5.0",
+			"resolved": "https://registry.npmjs.org/@earendil-works/pi-mcp/-/pi-mcp-1.5.0.tgz",
+			"integrity": "sha512-DURw3IwHCTMHV8CzUJWVp9css27NowsCWfXt4xg2r09IZ+P1O/Uq58hp0hb9WJO0dbkaKGXKBIkV4LVXcu2nlg==",
+			"license": "MIT",
+			"dependencies": {
+				"cross-spawn": "7.0.6"
+			},
+			"engines": {
+				"node": ">=22.19.0"
 			}
 		},
 		"node_modules/@google/genai": {

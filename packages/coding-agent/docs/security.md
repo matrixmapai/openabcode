@@ -9,6 +9,7 @@ Project trust controls whether openabcode loads project-local settings, resource
 OpenABCode considers a project to have resources that require trust when it finds any of these from the current working directory:
 
 - `.openabcode/settings.json`
+- `.openabcode/mcp.json`
 - `.openabcode/extensions`, `.openabcode/skills`, `.openabcode/prompts`, or `.openabcode/themes`
 - `.openabcode/SYSTEM.md` or `.openabcode/APPEND_SYSTEM.md`
 - project `.agents/skills` in the current directory or an ancestor directory
@@ -20,6 +21,7 @@ When an interactive session starts in a project with resources that require trus
 Trusting a project allows openabcode to load project resources that require trust, including:
 
 - `.openabcode/settings.json`
+- `.openabcode/mcp.json` (project MCP server definitions and overrides; local `stdio` MCP servers run with the OS permissions of the user account running `openabcode`)
 - `.openabcode` resources such as extensions, skills, prompt templates, themes, and system prompt files
 - missing project packages configured through project settings
 - project-local extensions and project package-managed extensions

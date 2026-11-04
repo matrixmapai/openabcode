@@ -35,6 +35,41 @@ export interface ResourceLoaderReloadOptions {
 	resolveProjectTrust?: (input: { extensionsResult: LoadExtensionsResult }) => Promise<boolean>;
 }
 
+/**
+ * Leave out replaceable extensions (see `InlineExtension`) that share a tool, command, or flag name
+ * with another extension. For example, a third-party MCP extension that registers `/mcp` replaces
+ * the built-in MCP extension instead of both connecting the same servers.
+ */
+function omitReplacedExtensions(
+	extensions: Extension[],
+	warnings?: Array<{ path: string; warning: string }>,
+): Extension[] {
+	const names = (extension: Extension) => [
+		...[...extension.tools.keys()].map((name) => `tool:${name}`),
+		...[...extension.commands.keys()].map((name) => `command:${name}`),
+		...[...extension.flags.keys()].map((name) => `flag:${name}`),
+	];
+	const taken = new Map(
+		extensions
+			.filter((extension) => !extension.replaceable)
+			.flatMap((extension) => names(extension).map((name) => [name, extension] as const)),
+	);
+	return extensions.filter((extension) => {
+		if (!extension.replaceable) return true;
+		const replacement = names(extension)
+			.map((name) => ({ name, extension: taken.get(name) }))
+			.find((value): value is { name: string; extension: Extension } => value.extension !== undefined);
+		if (!replacement) return true;
+		const [kind, rawName] = replacement.name.split(":", 2);
+		const registeredName = kind === "command" ? `/${rawName}` : kind === "flag" ? `--${rawName}` : rawName;
+		warnings?.push({
+			path: extension.path,
+			warning: `Extension ${replacement.extension.path} registers ${kind} \`${registeredName}\`, so built-in extension \`${extension.path}\` was not loaded.`,
+		});
+		return false;
+	});
+}
+
 export interface ResourceLoader {
 	getExtensions(): LoadExtensionsResult;
 	getSkills(): { skills: Skill[]; diagnostics: ResourceDiagnostic[] };
@@ -507,6 +542,9 @@ export class DefaultResourceLoader implements ResourceLoader {
 		const inlineExtensions = await this.loadExtensionFactories(extensionsResult.runtime);
 		extensionsResult.extensions.push(...inlineExtensions.extensions);
 		extensionsResult.errors.push(...inlineExtensions.errors);
+		const warnings: Array<{ path: string; warning: string }> = [];
+		extensionsResult.extensions = omitReplacedExtensions(extensionsResult.extensions, warnings);
+		if (warnings.length > 0) extensionsResult.warnings = warnings;
 		return extensionsResult;
 	}
 
@@ -523,6 +561,9 @@ export class DefaultResourceLoader implements ResourceLoader {
 			const inlineExtensions = await this.loadExtensionFactories(extensionsResult.runtime);
 			extensionsResult.extensions.push(...inlineExtensions.extensions);
 			extensionsResult.errors.push(...inlineExtensions.errors);
+			const warnings: Array<{ path: string; warning: string }> = [];
+			extensionsResult.extensions = omitReplacedExtensions(extensionsResult.extensions, warnings);
+			if (warnings.length > 0) extensionsResult.warnings = warnings;
 			this.addExtensionConflictDiagnostics(extensionsResult);
 			return extensionsResult;
 		}
@@ -550,6 +591,8 @@ export class DefaultResourceLoader implements ResourceLoader {
 			loadedByPath.set(extension.resolvedPath, extension);
 		}
 
+		// Reload replaceable inline extensions if they were omitted in the pre-trust pass, or keep
+		// all inline extensions and re-evaluate replacement against the final set of extensions.
 		const inlineExtensions = preTrustExtensions.extensions.filter((extension) =>
 			extension.path.startsWith("<inline:"),
 		);
@@ -558,9 +601,11 @@ export class DefaultResourceLoader implements ResourceLoader {
 			.filter((extension): extension is Extension => extension !== undefined);
 		orderedExtensions.push(...inlineExtensions);
 
+		const warnings: Array<{ path: string; warning: string }> = [];
 		const extensionsResult: LoadExtensionsResult = {
-			extensions: orderedExtensions,
+			extensions: omitReplacedExtensions(orderedExtensions, warnings),
 			errors: [...preTrustExtensions.errors, ...remainingExtensions.errors],
+			...(warnings.length > 0 ? { warnings } : {}),
 			runtime: preTrustExtensions.runtime,
 		};
 		this.addExtensionConflictDiagnostics(extensionsResult);
@@ -899,6 +944,10 @@ export class DefaultResourceLoader implements ResourceLoader {
 			const extensionPath = `<inline:${isNamed ? input.name : index + 1}>`;
 			try {
 				const extension = await loadExtensionFromFactory(factory, this.cwd, this.eventBus, runtime, extensionPath);
+				if (isNamed) {
+					extension.hidden = input.hidden === true;
+					extension.replaceable = input.replaceable === true;
+				}
 				extensions.push(extension);
 			} catch (error) {
 				const message = error instanceof Error ? error.message : "failed to load extension";

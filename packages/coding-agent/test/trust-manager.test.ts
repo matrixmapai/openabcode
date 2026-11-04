@@ -53,6 +53,10 @@ describe("ProjectTrustStore", () => {
 			writeFileSync(join(cwd, ".openabcode", "settings.json"), "{}");
 			expect(hasTrustRequiringProjectResources(cwd)).toBe(true);
 
+			rmSync(join(cwd, ".openabcode", "settings.json"), { force: true });
+			writeFileSync(join(cwd, ".openabcode", "mcp.json"), "{}");
+			expect(hasTrustRequiringProjectResources(cwd)).toBe(true);
+
 			rmSync(join(cwd, ".openabcode"), { recursive: true, force: true });
 			mkdirSync(join(cwd, ".agents", "skills"), { recursive: true });
 			expect(hasTrustRequiringProjectResources(cwd)).toBe(true);

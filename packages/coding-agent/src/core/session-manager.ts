@@ -799,6 +799,8 @@ export class SessionManager {
 	private byId: Map<string, SessionEntry> = new Map();
 	private labelsById: Map<string, string> = new Map();
 	private labelTimestampsById: Map<string, string> = new Map();
+	private activeToolsByEntryId: Map<string, string[]> = new Map();
+	private initialActiveTools?: string[];
 	private leafId: string | null = null;
 
 	private constructor(
@@ -876,6 +878,8 @@ export class SessionManager {
 		this.byId.clear();
 		this.labelsById.clear();
 		this.labelTimestampsById.clear();
+		this.activeToolsByEntryId.clear();
+		this.initialActiveTools = undefined;
 		this.leafId = null;
 		this.flushed = false;
 
@@ -1123,6 +1127,71 @@ export class SessionManager {
 
 	getLeafId(): string | null {
 		return this.leafId;
+	}
+
+	recordInitialActiveTools(tools: readonly string[]): void {
+		this.initialActiveTools = [...tools];
+	}
+
+	recordActiveToolsForEntry(entryId: string, tools: readonly string[]): void {
+		this.activeToolsByEntryId.set(entryId, [...tools]);
+	}
+
+	getRecordedToolsOnBranch(fromId?: string | null): {
+		tools: string[];
+		mentioned: Set<string>;
+		hasRecorded: boolean;
+		fromInMemorySnapshot: boolean;
+	} {
+		const mentioned = new Set<string>(this.initialActiveTools ?? []);
+		for (const tools of this.activeToolsByEntryId.values()) {
+			for (const tool of tools) mentioned.add(tool);
+		}
+		const targetId = fromId === undefined ? this.leafId : fromId;
+		if (targetId === null) {
+			if (this.initialActiveTools !== undefined) {
+				return {
+					tools: [...this.initialActiveTools],
+					mentioned,
+					hasRecorded: true,
+					fromInMemorySnapshot: true,
+				};
+			}
+			return { tools: [], mentioned, hasRecorded: false, fromInMemorySnapshot: false };
+		}
+
+		const path = this.getBranch(targetId);
+		let currentTools = this.initialActiveTools ? [...this.initialActiveTools] : [];
+		let hasRecorded = this.initialActiveTools !== undefined;
+		let fromInMemorySnapshot = this.initialActiveTools !== undefined;
+
+		for (const entry of path) {
+			const snapshot = this.activeToolsByEntryId.get(entry.id);
+			if (snapshot !== undefined) {
+				currentTools = [...snapshot];
+				hasRecorded = true;
+				fromInMemorySnapshot = true;
+				for (const tool of snapshot) mentioned.add(tool);
+				continue;
+			}
+			if (
+				entry.type === "message" &&
+				entry.message.role === "toolResult" &&
+				entry.message.toolName === "tool_search"
+			) {
+				const loaded = (entry.message.details as { loaded?: unknown } | undefined)?.loaded;
+				if (Array.isArray(loaded)) {
+					const loadedNames = loaded.filter((item): item is string => typeof item === "string");
+					if (loadedNames.length > 0) {
+						currentTools = [...new Set([...currentTools, ...loadedNames])];
+						hasRecorded = true;
+						for (const tool of loadedNames) mentioned.add(tool);
+					}
+				}
+			}
+		}
+
+		return { tools: currentTools, mentioned, hasRecorded, fromInMemorySnapshot };
 	}
 
 	getLeafEntry(): SessionEntry | undefined {

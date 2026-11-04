@@ -37,6 +37,7 @@ OpenABCode runs in four modes: interactive, print or JSON, RPC for process integ
 - [Customization](#customization)
   - [Prompt Templates](#prompt-templates)
   - [Skills](#skills)
+  - [MCP Servers](#mcp-servers)
   - [Extensions](#extensions)
   - [Themes](#themes)
   - [OpenABCode Packages](#openabcode-packages)
@@ -186,6 +187,7 @@ Type `/` in the editor to trigger commands. [Extensions](#extensions) can regist
 | Command | Description |
 |---------|-------------|
 | `/login`, `/logout` | OAuth authentication |
+| `/mcp` | Manage MCP servers: sign in, reconnect, enable or disable, and change exposure |
 | `/model` | Switch models |
 | `/route [on\|off\|status]` | Open the Route dashboard, or toggle/inspect task routing directly |
 | `/scoped-models` | Enable/disable models for Ctrl+P cycling |
@@ -371,6 +373,18 @@ Use this skill when the user asks about X.
 
 Place in `~/.openabcode/agent/skills/`, `~/.agents/skills/`, `.openabcode/skills/`, or `.agents/skills/` (from `cwd` up through parent directories) or a [openabcode package](#openabcode-packages) to share with others. See [docs/skills.md](docs/skills.md).
 
+### MCP Servers
+
+Connect local `stdio` or remote Streamable HTTP [Model Context Protocol](https://modelcontextprotocol.io) servers:
+
+```bash
+openabcode mcp add filesystem -- npx -y @modelcontextprotocol/server-filesystem .
+openabcode mcp add docs --url https://example.com/mcp --bearer-token-env-var DOCS_TOKEN
+openabcode mcp list
+```
+
+Servers are configured in `~/.openabcode/agent/mcp.json` (user) or `.openabcode/mcp.json` (trusted project). By default (`"exposure": "deferred"`), MCP tools are discovered on demand with `tool_search` so large servers do not bloat initial context; set `"exposure": "direct"` to declare tools upfront. Remote servers without an `Authorization` header support OAuth sign-in via `/mcp` or `openabcode mcp login <server>`. See [docs/mcp.md](docs/mcp.md).
+
 ### Extensions
 
 <p align="center"><img src="docs/images/doom-extension.png" alt="Doom Extension" width="600"></p>
@@ -501,8 +515,6 @@ See [docs/rpc.md](docs/rpc.md) for the protocol.
 
 OpenABCode is aggressively extensible so it doesn't have to dictate your workflow. Features that other tools bake in can be built with [extensions](#extensions), [skills](#skills), or installed from third-party [openabcode packages](#openabcode-packages). This keeps the core minimal while letting you shape openabcode to fit how you work.
 
-**No MCP.** Build CLI tools with READMEs (see [Skills](#skills)), or build an extension that adds MCP support. [Why?](https://mariozechner.at/posts/2025-11-02-what-if-you-dont-need-mcp/)
-
 **No sub-agents.** There's many ways to do this. Spawn openabcode instances via tmux, or build your own with [extensions](#extensions), or install a package that does it your way.
 
 **No permission popups.** Run in a container, or build your own confirmation flow with [extensions](#extensions) inline with your environment and security requirements.
@@ -537,6 +549,7 @@ openabcode update --self --force     # Reinstall openabcode even if current
 openabcode update --extension <src>  # Update one package
 openabcode list                      # List installed packages
 openabcode config                    # Enable/disable package resources
+openabcode mcp [add|remove|list|login|logout] # Configure and manage MCP servers
 ```
 
 `openabcode config` and project package commands accept `--approve`/`--no-approve` to trust or ignore project-local settings for one command. `openabcode update` never prompts for project trust.
@@ -597,6 +610,7 @@ Available built-in tools: `read`, `bash`, `edit`, `write`, `grep`, `find`, `ls`
 |--------|-------------|
 | `-e`, `--extension <source>` | Load extension from path, npm, or git (repeatable) |
 | `--no-extensions` | Disable extension discovery |
+| `--no-mcp` | Disable built-in MCP server integration |
 | `--skill <path>` | Load skill (repeatable) |
 | `--no-skills` | Disable skill discovery |
 | `--prompt-template <path>` | Load prompt template (repeatable) |

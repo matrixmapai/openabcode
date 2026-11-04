@@ -442,6 +442,9 @@ export async function runRpcMode(runtimeHost: AgentSessionRuntime): Promise<neve
 			// State
 			// =================================================================
 
+			case "get_mcp_status":
+				return success(id, "get_mcp_status", session.getMcpStatus());
+
 			case "get_state": {
 				const state: RpcSessionState = {
 					model: session.model,

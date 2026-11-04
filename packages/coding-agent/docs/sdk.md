@@ -111,11 +111,15 @@ interface AgentSession {
   abort(): Promise<void>;
 
   // Cleanup
-  dispose(): void;
+  dispose(): Promise<void>;
 }
 ```
 
 Session replacement APIs such as new-session, resume, fork, and import live on `AgentSessionRuntime`, not on `AgentSession`.
+
+For extension lifecycle handlers, call `await session.bindExtensions({})` after creation (or supply UI/action bindings). This emits `session_start`; loading factories alone does not start background MCP connections. `await session.reload()` shuts down and rebinds extensions even without UI callbacks. Always `await session.dispose()` in `finally` to finish shutdown handlers and MCP transport cleanup. Disposal is idempotent.
+
+For MCP, explicitly inject `createMcpExtension({ agentDir })` and `createToolSearchExtension()` in your loader. `session.getMcpStatus()` returns a credential-free snapshot of file and extension servers; subscribe to `mcp_status_change` for live updates. See the complete [MCP SDK example](mcp.md#use-mcp-from-the-sdk).
 
 ### createAgentSessionRuntime() and AgentSessionRuntime
 
@@ -1153,6 +1157,12 @@ AuthStorage
 ModelRegistry
 resolveCliModel
 resolveModelScopeWithDiagnostics
+
+// Built-in MCP extensions and status types
+createMcpExtension
+createToolSearchExtension
+type McpServerStatus
+type McpStatusSnapshot
 
 // Resource loading
 DefaultResourceLoader
