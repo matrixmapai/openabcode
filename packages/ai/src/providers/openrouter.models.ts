@@ -1781,7 +1781,7 @@ export const OPENROUTER_MODELS = {
 		input: ["text", "image"],
 		cost: {
 			input: 0.094,
-			output: 0.281,
+			output: 0.283,
 			cacheRead: 0.047,
 			cacheWrite: 0,
 		},
