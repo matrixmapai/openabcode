@@ -73,7 +73,7 @@ describe("OpenABCode router", () => {
 	it("registers the unified route command without a separate route-model command", () => {
 		const routeCommand = BUILTIN_SLASH_COMMANDS.find((command) => command.name === "route");
 		expect(routeCommand?.description).toContain("routing");
-		expect(routeCommand?.argumentHint).toBe("[on|off|status]");
+		expect(routeCommand?.argumentHint).toBe("[on|off|status|strategy [hybrid|classifier-only]]");
 		expect(BUILTIN_SLASH_COMMANDS.find((command) => command.name === "route-model")).toBeUndefined();
 	});
 

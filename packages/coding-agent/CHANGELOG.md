@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- Added `router.strategy` (`hybrid` by default, or `classifier-only`) with a strategy selector in `/route` and `/route strategy [hybrid|classifier-only]`. Classifier-only routing calls the configured classifier for every new task without heuristics or sticky reuse; routing audit entries record the strategy.
+
 ## [1.3.0] - 2026-11-04
 
 ### New Features

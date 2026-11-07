@@ -104,6 +104,7 @@ import {
 	ROUTING_ENTRY_TYPE,
 	ROUTING_FEEDBACK_ENTRY_TYPE,
 	type RouterConfig,
+	type RouterStrategy,
 	type RoutingDecision,
 	type RoutingMethod,
 	routeProviderOf,
@@ -297,6 +298,7 @@ const ROUTE_STICKY_REVALIDATE_AFTER = 10;
 /** Diagnostic snapshot of the task router, for UI display and troubleshooting. */
 export interface RouteStatus {
 	mode: "auto" | "manual";
+	strategy: RouterStrategy;
 	/** Families with a configured, authenticated execution model. */
 	availableChoices: ProviderChoice[];
 	/** Families missing configuration or auth. */
@@ -389,6 +391,9 @@ export class AgentSession {
 
 	// OpenABCode task routing ("auto" routes each prompt; "manual" respects the user's model choice)
 	private _routeMode: "auto" | "manual";
+	private _routeStrategy: RouterStrategy;
+	/** Prevent an in-flight decision from restoring state cleared by a strategy change. */
+	private _routeStrategyRevision = 0;
 
 	// Sticky routing: last provider choice, reused until a conflicting
 	// high-confidence heuristic signal or a manual model switch invalidates it.
@@ -425,6 +430,7 @@ export class AgentSession {
 		this._customTools = config.customTools ?? [];
 		this._cwd = config.cwd;
 		this._modelRegistry = config.modelRegistry;
+		this._routeStrategy = config.settingsManager.getRouterStrategy();
 		const classifierRef = config.settingsManager.getRouterClassifierModel();
 		const [classifierProvider, ...classifierIdParts] = classifierRef?.split("/") ?? [];
 		const classifierModel = classifierProvider
@@ -1715,8 +1721,32 @@ export class AgentSession {
 		return this._routeMode;
 	}
 
+	/** Strategy changes affect the next routed prompt, not an already-running task. */
+	get routeStrategy(): RouterStrategy {
+		return this.settingsManager.getRouterStrategy();
+	}
+
+	setRouteStrategy(strategy: RouterStrategy): void {
+		this.settingsManager.setRouterStrategy(strategy);
+		this._syncRouteStrategy();
+	}
+
+	private _syncRouteStrategy(): RouterStrategy {
+		const strategy = this.routeStrategy;
+		if (strategy !== this._routeStrategy) {
+			this._routeStrategy = strategy;
+			this._routeStrategyRevision++;
+			this._lastRouteChoice = undefined;
+			this._routeVetoChoice = undefined;
+			this._lastRoutingDecision = undefined;
+			this._resetRouteStreaks();
+		}
+		return strategy;
+	}
+
 	setRouteMode(mode: "auto" | "manual"): void {
-		if (mode === "auto" && this._routeMode !== "auto" && this._routeVetoChoice) {
+		const strategy = this._syncRouteStrategy();
+		if (strategy === "hybrid" && mode === "auto" && this._routeMode !== "auto" && this._routeVetoChoice) {
 			// Resume from the family the user last chose, not a fresh classification.
 			this._lastRouteChoice = this._routeVetoChoice;
 		}
@@ -1748,6 +1778,7 @@ export class AgentSession {
 
 		return {
 			mode: this._routeMode,
+			strategy: this.routeStrategy,
 			availableChoices,
 			missingChoices,
 			active: inactiveReason === undefined,
@@ -1761,6 +1792,7 @@ export class AgentSession {
 	 * 1. zero-cost heuristic (keywords, file extensions, project markers)
 	 * 2. sticky reuse of the previous choice
 	 * 3. LLM classifier (first routed turn, accumulated dissents, or stale sticky)
+	 * The classifier-only strategy skips stages 1 and 2 on every routed prompt.
 	 * Routing degrades to the configured families and is skipped when fewer than
 	 * two are available or no authenticated classifier model is configured.
 	 * The switch is per-turn: it does not persist a new default model.
@@ -1769,6 +1801,8 @@ export class AgentSession {
 		this.agent.requestHeaders = undefined;
 		if (this._routeMode !== "auto") return;
 		if (!text.trim()) return;
+		const strategy = this._syncRouteStrategy();
+		const strategyRevision = this._routeStrategyRevision;
 
 		const available = this._modelRegistry.getAvailable();
 		const hasAuth = (model: Model<any>) => this._modelRegistry.hasConfiguredAuth(model);
@@ -1798,64 +1832,72 @@ export class AgentSession {
 			defaultProvider: this.settingsManager.getRouterDefaultProvider() as ProviderChoice | undefined,
 		};
 		const projectFiles = await this._collectRouteProjectFiles(routerConfig);
-		const heuristic = classifyProviderHeuristic({ text, projectFiles }, routerConfig, availableChoices);
-
-		// A sticky choice whose family became unavailable must be re-classified.
-		const stickyChoice =
-			this._lastRouteChoice && availableChoices.includes(this._lastRouteChoice) ? this._lastRouteChoice : undefined;
-
-		let choice: ProviderChoice;
-		let method: RoutingMethod;
+		let choice: ProviderChoice | undefined;
+		let method: RoutingMethod = "classifier";
 		let matchedSignals: string[] | undefined;
 		let usedClassifier = false;
-		if (heuristic?.confidence === "high") {
-			choice = heuristic.choice;
-			method = "heuristic";
-			matchedSignals = heuristic.matched;
-			this._resetRouteStreaks();
-		} else {
-			// Track consecutive low-confidence dissents against the sticky choice.
-			const dissent = heuristic && stickyChoice && heuristic.choice !== stickyChoice ? heuristic.choice : undefined;
-			if (dissent && dissent === this._dissentChoice) {
-				this._dissentStreak++;
-			} else {
-				this._dissentChoice = dissent;
-				this._dissentStreak = dissent ? 1 : 0;
-			}
+		if (strategy === "hybrid") {
+			const heuristic = classifyProviderHeuristic({ text, projectFiles }, routerConfig, availableChoices);
+			// A sticky choice whose family became unavailable must be re-classified.
+			const stickyChoice =
+				this._lastRouteChoice && availableChoices.includes(this._lastRouteChoice)
+					? this._lastRouteChoice
+					: undefined;
 
-			// Reclassify when sticky is missing/stale, dissents accumulate, or the
-			// choice has gone unvalidated for too many turns.
-			const reclassify =
-				!stickyChoice ||
-				this._dissentStreak >= ROUTE_DISSENT_RECLASSIFY_AFTER ||
-				this._stickyStreak >= ROUTE_STICKY_REVALIDATE_AFTER;
-			if (!reclassify) {
-				choice = stickyChoice;
-				method = "sticky";
-				this._stickyStreak++;
-			} else {
-				const auth = await this._modelRegistry.getApiKeyAndHeaders(classifierModel);
-				if (!auth.ok) return;
-				choice = await classifyProvider(
-					classifierModel,
-					{ text, projectFiles, recentContext: this._recentRouteContext() },
-					{
-						apiKey: auth.apiKey,
-						headers:
-							classifierModel.provider === OPENABCODE_PROVIDER
-								? { ...auth.headers, [OPENABCODE_ROUTING_DECISION_HEADER]: decisionID }
-								: auth.headers,
-						env: auth.env,
-					},
-					routerConfig,
-					availableChoices,
-				);
-				method = "classifier";
-				usedClassifier = true;
+			if (heuristic?.confidence === "high") {
+				choice = heuristic.choice;
+				method = "heuristic";
+				matchedSignals = heuristic.matched;
 				this._resetRouteStreaks();
+			} else {
+				// Track consecutive low-confidence dissents against the sticky choice.
+				const dissent =
+					heuristic && stickyChoice && heuristic.choice !== stickyChoice ? heuristic.choice : undefined;
+				if (dissent && dissent === this._dissentChoice) {
+					this._dissentStreak++;
+				} else {
+					this._dissentChoice = dissent;
+					this._dissentStreak = dissent ? 1 : 0;
+				}
+
+				// Reclassify when sticky is missing/stale, dissents accumulate, or the
+				// choice has gone unvalidated for too many turns.
+				const reclassify =
+					!stickyChoice ||
+					this._dissentStreak >= ROUTE_DISSENT_RECLASSIFY_AFTER ||
+					this._stickyStreak >= ROUTE_STICKY_REVALIDATE_AFTER;
+				if (!reclassify) {
+					choice = stickyChoice;
+					method = "sticky";
+					this._stickyStreak++;
+				}
 			}
 		}
-		this._lastRouteChoice = choice;
+
+		// Both strategies share authentication, classifier context, and fallback handling.
+		if (!choice) {
+			const auth = await this._modelRegistry.getApiKeyAndHeaders(classifierModel);
+			if (!auth.ok) return;
+			choice = await classifyProvider(
+				classifierModel,
+				{ text, projectFiles, recentContext: this._recentRouteContext() },
+				{
+					apiKey: auth.apiKey,
+					headers:
+						classifierModel.provider === OPENABCODE_PROVIDER
+							? { ...auth.headers, [OPENABCODE_ROUTING_DECISION_HEADER]: decisionID }
+							: auth.headers,
+					env: auth.env,
+				},
+				routerConfig,
+				availableChoices,
+			);
+			usedClassifier = true;
+			if (strategyRevision === this._routeStrategyRevision) this._resetRouteStreaks();
+		}
+		if (strategyRevision === this._routeStrategyRevision) {
+			this._lastRouteChoice = strategy === "hybrid" ? choice : undefined;
+		}
 
 		const picked = pickRouteModel(choice, available, hasAuth, configured);
 		if (!picked) return;
@@ -1865,6 +1907,7 @@ export class AgentSession {
 			id: decisionID,
 			provider: choice,
 			source: picked.source,
+			strategy,
 			method,
 			matchedSignals,
 			classifierModel: usedClassifier ? { provider: classifierModel.provider, id: classifierModel.id } : undefined,
@@ -1873,7 +1916,9 @@ export class AgentSession {
 			timestamp: Date.now(),
 		};
 		this.sessionManager.appendCustomEntry(ROUTING_ENTRY_TYPE, decision);
-		this._lastRoutingDecision = { id: decision.id, provider: choice };
+		if (strategyRevision === this._routeStrategyRevision) {
+			this._lastRoutingDecision = { id: decision.id, provider: choice };
+		}
 		if (picked.model.provider === OPENABCODE_PROVIDER) {
 			this.agent.requestHeaders = { [OPENABCODE_ROUTING_DECISION_HEADER]: decision.id };
 		}

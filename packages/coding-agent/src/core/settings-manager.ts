@@ -7,6 +7,7 @@ import lockfile from "proper-lockfile";
 import { CONFIG_DIR_NAME, getAgentDir } from "../config.ts";
 import { normalizePath, resolvePath } from "../utils/paths.ts";
 import { DEFAULT_HTTP_IDLE_TIMEOUT_MS, parseHttpIdleTimeoutMs } from "./http-dispatcher.ts";
+import { isRouterStrategy, type RouterStrategy } from "./router.ts";
 
 export interface CompactionSettings {
 	enabled?: boolean; // default: true
@@ -63,6 +64,7 @@ export type DefaultProjectTrust = "ask" | "always" | "never";
 
 export interface RouterSettings {
 	enabled?: boolean; // default: false until the interactive Route setup is completed
+	strategy?: RouterStrategy; // default: "hybrid"; "classifier-only" skips heuristics and sticky reuse
 	setupCompleted?: boolean;
 	classifierModel?: string; // "provider/modelId" used to classify each task
 	models?: {
@@ -774,6 +776,23 @@ export class SettingsManager {
 	setRouterEnabled(enabled: boolean): void {
 		this.globalSettings.router = { ...this.globalSettings.router, enabled };
 		this.markModified("router");
+		this.save();
+	}
+
+	getRouterStrategy(): RouterStrategy {
+		const strategy = this.settings.router?.strategy ?? "hybrid";
+		if (!isRouterStrategy(strategy)) {
+			throw new Error(`Invalid router.strategy setting: ${String(strategy)}`);
+		}
+		return strategy;
+	}
+
+	setRouterStrategy(strategy: RouterStrategy): void {
+		if (!isRouterStrategy(strategy)) {
+			throw new Error(`Invalid router.strategy setting: ${String(strategy)}`);
+		}
+		this.globalSettings.router = { ...this.globalSettings.router, strategy };
+		this.markModified("router", "strategy");
 		this.save();
 	}
 
