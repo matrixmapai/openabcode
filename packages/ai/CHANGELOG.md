@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Omit the unsupported `store` field from OpenABCode Chat Completions requests, including synced hosted models without explicit compatibility flags.
+
 ## [1.3.0] - 2026-11-04
 
 ### Changed

@@ -1222,7 +1222,8 @@ function detectCompat(model: Model<"openai-completions">): ResolvedOpenAIComplet
 	const cacheControlFormat = provider === "openrouter" && model.id.startsWith("anthropic/") ? "anthropic" : undefined;
 
 	return {
-		supportsStore: !isNonStandard,
+		// OpenABCode's prepaid Chat Completions allowlist does not accept store.
+		supportsStore: provider !== "openabcode" && !isNonStandard,
 		supportsDeveloperRole: isOpenRouterDeveloperRoleModel || (!isNonStandard && !isOpenRouter),
 		supportsReasoningEffort:
 			!isGrok && !isZai && !isMoonshot && !isTogether && !isCloudflareAiGateway && !isNvidia && !isAntLing,

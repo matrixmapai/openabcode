@@ -2,9 +2,18 @@
 
 ## [Unreleased]
 
+### New Features
+
+- **Classifier-only Route strategy**: choose `classifier-only` in `/route` or run `/route strategy classifier-only` to classify every new task without heuristics or sticky reuse. The default `hybrid` strategy is unchanged. See [Route strategies](docs/usage.md#per-prompt-routing).
+
 ### Added
 
 - Added `router.strategy` (`hybrid` by default, or `classifier-only`) with a strategy selector in `/route` and `/route strategy [hybrid|classifier-only]`. Classifier-only routing calls the configured classifier for every new task without heuristics or sticky reuse; routing audit entries record the strategy.
+
+### Fixed
+
+- Fixed OpenABCode gateway requests, including Route classifier requests, being rejected with `Unsupported budget parameter: store` by omitting the unsupported field.
+- Fixed cross-platform binary release builds by hydrating clipboard native bindings in an isolated package, avoiding workspace dependency re-resolution while preserving the dependency age gate ([#50](https://github.com/matrixmapai/openabcode/pull/50)).
 
 ## [1.3.0] - 2026-11-04
 
