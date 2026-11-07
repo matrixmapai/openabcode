@@ -1,5 +1,7 @@
 import type { AgentMessage } from "@openabcode/agent-core";
 import { describe, expect, it, vi } from "vitest";
+import type { RouteStatus } from "../src/core/agent-session.ts";
+import { ROUTE_PROVIDER_CHOICES } from "../src/core/router.ts";
 import { InteractiveMode } from "../src/modes/interactive/interactive-mode.ts";
 
 type SubmitContext = {
@@ -135,6 +137,15 @@ describe("InteractiveMode /route configuration flow", () => {
 					return routeMode;
 				},
 				model: models[0],
+				getRouteStatus: vi.fn(
+					(): RouteStatus => ({
+						mode: routeMode,
+						strategy: "hybrid",
+						active: routeMode === "auto" && Boolean(classifierModel) && Object.keys(routerModels).length >= 2,
+						availableChoices: ROUTE_PROVIDER_CHOICES.filter((choice) => routerModels[choice]),
+						missingChoices: ROUTE_PROVIDER_CHOICES.filter((choice) => !routerModels[choice]),
+					}),
+				),
 				setRouteMode: vi.fn((mode: "auto" | "manual") => {
 					routeMode = mode;
 				}),
@@ -201,7 +212,7 @@ describe("InteractiveMode /route configuration flow", () => {
 
 		await (context.handleRouteCommand as (arg?: string) => Promise<void>).call(context, "status");
 		expect(context.showStatus).toHaveBeenLastCalledWith(
-			expect.stringContaining("Route ON (degraded) · Claude: claude-sonnet-4-6 [anthropic]"),
+			expect.stringContaining("Route ON (degraded) · Strategy: hybrid · Claude: claude-sonnet-4-6 [anthropic]"),
 		);
 
 		await (context.handleRouteCommand as (arg?: string) => Promise<void>).call(context, "off");
