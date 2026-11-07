@@ -88,7 +88,10 @@ import { DefaultPackageManager } from "../../core/package-manager.ts";
 import { BUILT_IN_PROVIDER_DISPLAY_NAMES } from "../../core/provider-display-names.ts";
 import type { ResourceDiagnostic } from "../../core/resource-loader.ts";
 import {
+	isRouterStrategy,
 	type ProviderChoice,
+	ROUTER_STRATEGIES,
+	type RouterStrategy,
 	routeProviderOf,
 	suggestRouteClassifierModel,
 	suggestRouteFamilyModel,
@@ -184,6 +187,17 @@ const ROUTE_FAMILY_ROLES: Record<ProviderChoice, string> = {
 };
 
 const ROUTE_DASHBOARD_SLOTS: readonly ProviderChoice[] = ["anthropic", "openai", "google"];
+
+const ROUTE_STRATEGY_OPTIONS: Record<RouterStrategy, { label: string; description: string }> = {
+	hybrid: {
+		label: "Hybrid",
+		description: "Heuristics first, reuse the previous family, classify when needed",
+	},
+	"classifier-only": {
+		label: "Classifier only",
+		description: "Classify every task (extra latency and cost); no heuristics or sticky reuse",
+	},
+};
 
 function isExpandable(obj: unknown): obj is Expandable {
 	return typeof obj === "object" && obj !== null && "setExpanded" in obj && typeof obj.setExpanded === "function";
@@ -614,6 +628,31 @@ export class InteractiveMode {
 					label: item.id,
 					description: item.provider,
 				}));
+			};
+		}
+
+		const routeCommand = slashCommands.find((command) => command.name === "route");
+		if (routeCommand) {
+			routeCommand.getArgumentCompletions = (prefix: string): AutocompleteItem[] | null => {
+				const items = [
+					{ value: "on", description: "Enable Route" },
+					{ value: "off", description: "Use a fixed model" },
+					{ value: "status", description: "Show Route configuration" },
+					{ value: "strategy", description: "Select routing strategy" },
+					...ROUTER_STRATEGIES.map((strategy) => ({
+						value: `strategy ${strategy}`,
+						description: ROUTE_STRATEGY_OPTIONS[strategy].description,
+					})),
+				];
+				return createFuzzyAutocompleteItems(
+					items,
+					prefix,
+					(item) => item.value,
+					(item) => ({
+						...item,
+						label: item.value,
+					}),
+				);
 			};
 		}
 
@@ -5752,7 +5791,18 @@ export class InteractiveMode {
 			await this.showRouteSelector();
 			return;
 		}
-		const normalized = arg.toLowerCase();
+		const normalized = arg.trim().toLowerCase();
+		const [subcommand, strategy, ...extraArgs] = normalized.split(/\s+/);
+		if (subcommand === "strategy") {
+			if (!strategy) {
+				this.showRouteStrategySelector();
+			} else if (isRouterStrategy(strategy) && extraArgs.length === 0) {
+				this.applyRouteStrategy(strategy);
+			} else {
+				this.showError("Usage: /route strategy [hybrid|classifier-only]");
+			}
+			return;
+		}
 		if (normalized === "on") {
 			await this.enableRouteIfConfigured();
 			return;
@@ -5771,7 +5821,37 @@ export class InteractiveMode {
 			await this.showRouteStatusSummary();
 			return;
 		}
-		this.showError("Usage: /route [on|off|status]");
+		this.showError("Usage: /route [on|off|status|strategy [hybrid|classifier-only]]");
+	}
+
+	private applyRouteStrategy(strategy: RouterStrategy): void {
+		this.session.setRouteStrategy(strategy);
+		this.footer.invalidate();
+		this.showStatus(
+			`Route strategy: ${this.session.routeStrategy} · ${ROUTE_STRATEGY_OPTIONS[this.session.routeStrategy].description}. Applies to the next task.`,
+		);
+	}
+
+	private showRouteStrategySelector(onDone?: () => void): void {
+		this.showSelector((done) => {
+			const selector = new ChoiceSelectorComponent(
+				"Route strategy",
+				ROUTER_STRATEGIES.map((strategy) => ({ value: strategy, ...ROUTE_STRATEGY_OPTIONS[strategy] })),
+				this.session.routeStrategy,
+				(value) => {
+					done();
+					if (isRouterStrategy(value)) this.applyRouteStrategy(value);
+					onDone?.();
+				},
+				() => {
+					done();
+					if (onDone) onDone();
+					else this.ui.requestRender();
+				},
+				"Classifier only adds latency and cost per task. Applies to new tasks; Route on/off is unchanged",
+			);
+			return { component: selector, focus: selector.getSelectList() };
+		});
 	}
 
 	private resolveRouteCandidate(reference: string | undefined, candidates: Model<any>[]): Model<any> | undefined {
@@ -5853,7 +5933,11 @@ export class InteractiveMode {
 		const classifierLabel = resolved.classifier
 			? `${resolved.classifier.id} [${resolved.classifier.provider}]`
 			: "not configured";
-		this.showStatus(`Route ${modeLabel} · ${slotSummaries.join(" · ")} · Classifier: ${classifierLabel}`);
+		const status = this.session.getRouteStatus();
+		const inactiveLabel = status.mode === "auto" && !status.active ? ` · Inactive: ${status.inactiveReason}` : "";
+		this.showStatus(
+			`Route ${modeLabel} · Strategy: ${status.strategy}${inactiveLabel} · ${slotSummaries.join(" · ")} · Classifier: ${classifierLabel}`,
+		);
 	}
 
 	private async showRouteClassifierSelector(
@@ -5981,6 +6065,11 @@ export class InteractiveMode {
 				label: !isAuto ? "● off (fixed model)" : "○ off",
 				description: "Always use one fixed model",
 			},
+			{
+				value: "strategy",
+				label: `Strategy: ${ROUTE_STRATEGY_OPTIONS[this.session.routeStrategy].label}`,
+				description: ROUTE_STRATEGY_OPTIONS[this.session.routeStrategy].description,
+			},
 			...ROUTE_DASHBOARD_SLOTS.map((slot) => {
 				const model = resolved.families[slot];
 				return {
@@ -6014,6 +6103,10 @@ export class InteractiveMode {
 					}
 					if (value === "off") {
 						void this.showFixedModelFlow(() => void this.showRouteSelector(title, "off"));
+						return;
+					}
+					if (value === "strategy") {
+						this.showRouteStrategySelector(() => void this.showRouteSelector(title, "strategy"));
 						return;
 					}
 					if (value === "classifier") {

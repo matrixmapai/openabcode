@@ -16,6 +16,13 @@ import {
 export const ROUTE_PROVIDER_CHOICES = ["openai", "google", "anthropic"] as const;
 export type ProviderChoice = (typeof ROUTE_PROVIDER_CHOICES)[number];
 
+export const ROUTER_STRATEGIES = ["hybrid", "classifier-only"] as const;
+export type RouterStrategy = (typeof ROUTER_STRATEGIES)[number];
+
+export function isRouterStrategy(value: unknown): value is RouterStrategy {
+	return ROUTER_STRATEGIES.some((strategy) => strategy === value);
+}
+
 const DEFAULT_PROVIDER_CHOICE: ProviderChoice = "anthropic";
 const OPENROUTER_PROVIDER = "openrouter";
 const CLASSIFIER_SYSTEM_PROMPT = "Classify the coding task into exactly one model provider.";
@@ -43,6 +50,8 @@ export interface RoutingDecision {
 	id: string;
 	provider: ProviderChoice;
 	source: "classifier" | "preferred";
+	/** Configured strategy. Entries without this field used the hybrid strategy. */
+	strategy?: RouterStrategy;
 	/** How the provider choice was made. Pre-existing entries without this field were classifier-based. */
 	method?: RoutingMethod;
 	/** Heuristic signals that matched, for audit. Only present when method is "heuristic". */
